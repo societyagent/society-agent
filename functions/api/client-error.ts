@@ -1,10 +1,11 @@
+import { LIMITS } from '../../src/engine/limits'
 import { allow, clientIp, json, logError, readJson, type Ctx } from '../_lib'
 
 const clip = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) : '')
 
 /** POST /api/client-error — the browser reports uncaught errors and CSP violations. Always 204; never trusted for anything but triage. */
 export const onRequestPost = async (ctx: Ctx) => {
-  if (!(await allow(ctx.env, `ce:${clientIp(ctx.request)}`, 20, 600))) return new Response(null, { status: 204 })
+  if (!(await allow(ctx.env, `ce:${clientIp(ctx.request)}`, LIMITS.rate.clientError.limit, LIMITS.rate.clientError.windowSec))) return new Response(null, { status: 204 })
   const b = await readJson<Record<string, unknown>>(ctx.request)
   if (!b) return new Response(null, { status: 204 })
   const kind = ['error', 'unhandledrejection', 'csp'].includes(String(b.kind)) ? String(b.kind) : 'error'

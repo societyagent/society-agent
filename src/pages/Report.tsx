@@ -51,35 +51,35 @@ export function Report() {
         <p className="mt-4 text-lg italic leading-snug text-black/60">{r.question}</p>
 
         <dl className="mt-8 grid gap-x-8 gap-y-3 border-y border-black/10 py-5 text-sm sm:grid-cols-2">
-          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/40">The news</dt><dd className="mt-1">“{r.news}”</dd></div>
-          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/40">Measured</dt><dd className="mt-1">{r.measure}</dd></div>
-          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/40">Random towns per option</dt><dd className="mt-1">{r.towns}</dd></div>
-          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/40">Options compared</dt><dd className="mt-1">{batch.x.conds.map((c) => c.label).join(' · ')}</dd></div>
+          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/62">The news</dt><dd className="mt-1">“{r.news}”</dd></div>
+          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/62">Measured</dt><dd className="mt-1">{r.measure}</dd></div>
+          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/62">Random towns per option</dt><dd className="mt-1">{r.towns}</dd></div>
+          <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/62">Options compared</dt><dd className="mt-1">{batch.x.conds.map((c) => c.label).join(' · ')}</dd></div>
         </dl>
 
-        {r.summary && <section className="avoid mt-9"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/45">The short answer</h2><p className="mt-3 font-display text-2xl leading-snug md:text-[28px]">{r.summary}</p></section>}
+        {r.summary && <section className="avoid mt-9"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">The short answer</h2><p className="mt-3 font-display text-2xl leading-snug md:text-[28px]">{r.summary}</p></section>}
 
-        <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/45">What the experiment shows</h2>
+        <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">What the experiment shows</h2>
           <div className="mt-3 rounded-lg border border-black/10 bg-white p-3 md:p-5">
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">{batch.x.conds.map((c, i) => <span key={c.id} className="inline-flex items-center gap-2"><i className="size-3 rounded-full" style={{ background: INK[i] }} />{c.label}</span>)}</div>
             <div className="mt-2 overflow-x-auto"><div className="min-w-[560px]"><BandsChart b={batch} axis={r.axis} metric={batch.x.outcome === 'half' ? 'informed' : 'opinion'} colors={INK} light /></div></div>
-            <p className="mt-2 text-xs text-black/45">Line = the typical town · shaded band = the middle 80% of towns{batch.x.conds.some((c) => c.kind !== 'none') ? ' · dotted line = when the move happens' : ''}</p>
+            <p className="mt-2 text-xs text-black/62">Line = the typical town · shaded band = the middle 80% of towns{batch.x.conds.some((c) => c.kind !== 'none') ? ' · dotted line = when the move happens' : ''}</p>
           </div></section>
 
-        <section className="mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/45">Findings</h2>
-          <ul className="mt-3 space-y-4">{r.findings.map((f) => <li key={f.label} className={`avoid border-l-[3px] pl-4 ${f.clear ? 'border-[#1f9d6b]' : 'border-black/20'}`}><p className="text-lg leading-snug">{f.headline}</p><p className="mt-1 text-sm leading-relaxed text-black/55">{f.detail}</p></li>)}</ul></section>
+        <section className="mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">Findings</h2>
+          <ul className="mt-3 space-y-4">{r.findings.map((f) => <li key={f.label} className={`avoid border-l-[3px] pl-4 ${f.clear ? 'border-[#1f9d6b]' : 'border-black/20'}`}><p className="text-lg leading-snug">{f.headline}</p><p className="mt-1 text-sm leading-relaxed text-black/62">{f.detail}</p></li>)}</ul></section>
 
-        <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/45">The numbers</h2>
-          <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[520px] text-sm"><thead><tr className="border-b border-black/20 text-left text-[11px] uppercase tracking-wider text-black/45"><th className="py-2 pr-3 font-medium">Option</th><th className="py-2 pr-3 font-medium">Average</th><th className="py-2 pr-3 font-medium">95% range of the average</th><th className="py-2 font-medium">Typical towns (10th–90th)</th></tr></thead>
+        <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">The numbers</h2>
+          <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[520px] text-sm"><thead><tr className="border-b border-black/20 text-left text-[11px] uppercase tracking-wider text-black/62"><th className="py-2 pr-3 font-medium">Option</th><th className="py-2 pr-3 font-medium">Average</th><th className="py-2 pr-3 font-medium">95% range of the average</th><th className="py-2 font-medium">Typical towns (10th–90th)</th></tr></thead>
             <tbody>{r.rows.map((row, i) => <tr key={row.label} className="border-b border-black/10"><td className="py-2.5 pr-3"><span className="inline-flex items-center gap-2"><i className="size-2.5 rounded-full" style={{ background: INK[i] }} />{row.label}</span></td><td className="py-2.5 pr-3 font-mono">{row.mean}</td><td className="py-2.5 pr-3 font-mono text-black/60">{row.ci}</td><td className="py-2.5 font-mono text-black/60">{row.spread}</td></tr>)}</tbody></table></div></section>
 
-        <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/45">What each option was</h2>
+        <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">What each option was</h2>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">{r.setup.map((s, i) => <div key={s.label} className="avoid rounded-lg border border-black/10 p-4"><p className="flex items-center gap-2 font-medium"><i className="size-2.5 rounded-full" style={{ background: INK[i] }} />{s.label}</p><ul className="mt-2 space-y-1 text-sm leading-relaxed text-black/65">{s.lines.map((l) => <li key={l}>{l}</li>)}</ul></div>)}</div></section>
 
-        <section className="avoid mt-10 border-t border-black/15 pt-6"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/45">How to read this</h2>
+        <section className="avoid mt-10 border-t border-black/15 pt-6"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">How to read this</h2>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-black/60">{r.notes.map((n) => <li key={n}>{n}</li>)}</ul>
-          <p className="mt-5 text-sm text-black/60"><a href={link} className="font-medium text-[#b9531f] underline underline-offset-4">Re-run this experiment</a> <span className="text-black/45">— the link rebuilds the same towns and gives exactly these numbers.</span></p>
-          <p className="mt-2 hidden break-all font-mono text-[10px] text-black/40 print:block">{link.length > 90 ? `${link.slice(0, 90)}…` : link}</p></section>
+          <p className="mt-5 text-sm text-black/60"><a href={link} className="font-medium text-[#b9531f] underline underline-offset-4">Re-run this experiment</a> <span className="text-black/62">— the link rebuilds the same towns and gives exactly these numbers.</span></p>
+          <p className="mt-2 hidden break-all font-mono text-[10px] text-black/62 print:block">{link.length > 90 ? `${link.slice(0, 90)}…` : link}</p></section>
       </>}
     </article>
   </main>

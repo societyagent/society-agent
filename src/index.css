@@ -25,3 +25,26 @@
   button:not(:disabled), [role='button']:not(:disabled) { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+
+/* ── Accessibility + touch foundations ─────────────────────────────────────────────────────────────── */
+/* Un-layered on purpose: it must beat utilities such as `outline-none`, so keyboard users always see where they are. */
+:focus-visible { outline: 2px solid var(--color-ember-300); outline-offset: 2px; border-radius: 6px; }
+canvas:focus-visible { outline-offset: -2px; }
+.skip-link { position: fixed; left: 12px; top: -64px; z-index: 100; border-radius: 10px; background: #fff; color: #111; padding: 10px 16px; font-weight: 600; font-size: 14px; transition: top .15s ease; }
+.skip-link:focus { top: 12px; }
+@layer base {
+  input[type='range'] { height: 28px; }
+  input[type='radio'], input[type='checkbox'] { width: 18px; height: 18px; }
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+}
+/* Touch devices and small screens: every control is at least 44px tall (WCAG 2.5.5 target size). Inline text links keep their size. */
+@media (pointer: coarse), (max-width: 700px) {
+  button, select, summary, [role='button'], header a, nav a, .tap { min-height: 44px; }
+  header a:not(.tap-auto), nav a:not(.tap-auto), summary, .tap { display: inline-flex; align-items: center; }
+  button { min-width: 44px; }
+  .tap-auto { min-height: 0; }
+}
+
+/* Anchor jumps land below the sticky navigation bar. */
+html { scroll-padding-top: 5.5rem; }

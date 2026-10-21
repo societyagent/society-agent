@@ -1,3 +1,4 @@
+import { LIMITS } from './limits'
 import type { Cfg, LayoutId, ResidentTweak, TownCfg } from './world'
 
 export interface Template { id: string; title: string; blurb: string; axis: [string, string]; news: { text: string; stance: number; seedRoles: string[] }; question: string }
@@ -51,7 +52,7 @@ export function buildCfg(templateId: string, over: Partial<{ name: string; quest
     question: (over.question ?? t.question).slice(0, 400),
     template: t.id,
     axis: over.axis ? [over.axis[0].slice(0, 24) || t.axis[0], over.axis[1].slice(0, 24) || t.axis[1]] : t.axis,
-    population: Math.max(6, Math.min(16, Math.round(over.population ?? 12))),
+    population: Math.max(LIMITS.town.minResidents, Math.min(LIMITS.town.maxResidents, Math.round(over.population ?? 12))),
     seed: (over.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
     news: { text: (over.text ?? t.news.text).slice(0, 240), stance: Math.max(-1, Math.min(1, over.stance ?? t.news.stance)), startTick: 2, seedRoles: over.seedRoles?.length ? over.seedRoles.slice(0, 4) : t.news.seedRoles },
     ...(over.town && (over.town.trust || over.town.social || over.town.bias) ? { town: over.town } : {}),

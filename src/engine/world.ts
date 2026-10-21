@@ -424,3 +424,6 @@ export function summarize(st: State, metrics: Metric[], events: Ev[]) {
   lines.push(`${shifts} opinion shift${shifts === 1 ? '' : 's'} crossed a stance boundary after conversations or interventions.`)
   return lines
 }
+
+/** The cast, for documentation and UI. Read-only view of the engine's own list. */
+export const PERSONAS_PUBLIC: readonly Readonly<{ name: string; age: number; role: string; bio: string; work: string; traits: Traits }>[] = PERSONAS

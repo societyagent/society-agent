@@ -14,7 +14,7 @@ await p.getByRole('button', { name: 'Village square', exact: true }).click()
 await p.getByText('Change one resident (optional)').click()
 await p.getByLabel('Who').selectOption({ label: 'Leila Nasser (official)' })
 await p.locator('label:has-text("Sociability") input[type=range]').fill('0.4')
-await p.getByRole('button', { name: /Start simulation/ }).click(); await p.waitForURL('**/app/sim')
+await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim')
 await p.getByRole('button', { name: 'Got it' }).click().catch(() => {})
 const head = await p.locator('main').first().innerText()
 ok('the simulation header names the street plan and the changed resident', /village square/i.test(head) && /leila changed/i.test(head), (head.match(/VILLAGE[^\n]*/i) ?? [''])[0])
@@ -23,7 +23,7 @@ ok('the village town runs: residents hear the news and talk', /heard the news/.t
 // the canvas really drew a different map: compare against the classic one by pixel signature of the first row of roads
 const sig = async (pg: typeof p) => pg.evaluate(() => { const c = document.querySelector('canvas')!; const g = c.getContext('2d')!; const w = c.width, h = c.height; const d = g.getImageData(0, 0, w, h).data; let s = 0; for (let y = Math.floor(h * 0.45); y < Math.floor(h * 0.55); y += 3) for (let x = 0; x < w; x += 7) s = (s * 31 + d[(y * w + x) * 4]) >>> 0; return s })
 const villageSig = await sig(p)
-const q = await page(); await q.goto(BASE + '/app', { waitUntil: 'networkidle' }); await q.getByRole('button', { name: /Start simulation/ }).click(); await q.waitForURL('**/app/sim'); await q.waitForTimeout(1200)
+const q = await page(); await q.goto(BASE + '/app', { waitUntil: 'networkidle' }); await q.getByRole('button', { name: /Start simulation/ }).first().click(); await q.waitForURL('**/app/sim'); await q.waitForTimeout(1200)
 ok('the village map is drawn differently from the classic map', villageSig !== (await sig(q)))
 
 /* ── 2. lab: ready-made questions, per-option street plan and per-person tweak ── */

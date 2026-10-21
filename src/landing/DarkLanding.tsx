@@ -40,8 +40,8 @@ function LiveTown() {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[.08] px-4 py-3 text-xs md:px-5">
       <span className="inline-flex items-center gap-2 rounded-full bg-[#ff9a62] px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-[#1a0f08]"><i className="size-1.5 animate-pulse rounded-full bg-[#1a0f08]" />Breaking</span>
       <span className="min-w-0 flex-1 truncate text-white/75">A water main broke in the east district and pressure may drop by noon.</span>
-      <span className="font-mono text-white/45">{dayClock(Math.max(0, s.tick - 1))}</span>
-      <span className="hidden font-mono text-white/45 sm:inline">{Math.round((last?.informed ?? 0) * 100)}% have heard</span>
+      <span className="font-mono text-white/55">{dayClock(Math.max(0, s.tick - 1))}</span>
+      <span className="hidden font-mono text-white/55 sm:inline">{Math.round((last?.informed ?? 0) * 100)}% have heard</span>
     </div>
     <div className="p-2 md:p-3"><Town agents={s.agents} selected={sel} mode="opinion" onSelect={setSel} tick={s.tick} /></div>
     <p className="border-t border-white/[.08] px-4 py-3 text-xs leading-relaxed text-white/50 md:px-5">{agent ? <><b className="text-white/85">{agent.name}</b>, {agent.age}, {agent.role}. {agent.bio} Right now: {agent.goal}.</> : 'This is the real simulation, not a video. Click anyone on the map to meet them.'}</p>
@@ -87,7 +87,7 @@ function Comparison() {
         {[0, 24, 48, 72, 95].map((t) => <text key={t} x={x(t)} y={H - 12} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,.35)" fontFamily="DM Mono">{dayClock(t).replace('Day 1 · ', '')}</text>)}
         {runs.map((r) => <path key={r.id} d={path(r.m)} fill="none" stroke={r.color} strokeWidth={on === r.id ? 3.4 : 1.8} strokeLinecap="round" strokeLinejoin="round" opacity={on === r.id ? 1 : 0.35} style={{ transition: 'all .3s' }} />)}
       </svg>
-      <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-[.18em] text-white/35">Average alarm in town · 0 = calm · same seed, only your move differs</p>
+      <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-[.18em] text-white/55">Average alarm in town · 0 = calm · same seed, only your move differs</p>
     </div>
     <div className="flex flex-col gap-3">
       {runs.map((r) => { const s = stats.find((q) => q.id === r.id)!; const active = on === r.id
@@ -96,7 +96,7 @@ function Comparison() {
           <p className="mt-1 text-sm text-white/50">{r.sub}</p>
           <div className="mt-3 flex gap-6 font-mono text-xs text-white/70"><span>peak <b className="text-white">{s.peak.toFixed(2)}</b></span><span>end of day <b className="text-white">{s.final.toFixed(2)}</b></span></div>
         </button> })}
-      <p className="px-1 text-xs leading-relaxed text-white/40">Computed in your browser, just now, by the same engine the app runs. This is a toy model of one small town, not a forecast of real people. Change the seed or the message in the app and the curves change with it.</p>
+      <p className="px-1 text-xs leading-relaxed text-white/55">Computed in your browser, just now, by the same engine the app runs. This is a toy model of one small town, not a forecast of real people. Change the seed or the message in the app and the curves change with it.</p>
     </div>
   </div>
 }
@@ -106,9 +106,9 @@ function Residents() {
   const people = Array.from({ length: 8 }, (_, i) => ({ id: i, p: personaOf(i) })).filter((x) => x.p)
   return <div className="grid gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
     {people.map(({ id, p }) => <div key={id} className="bg-[#0f0d0c] p-5 transition hover:bg-[#17130f]">
-      <div className="flex items-center gap-3"><div className="grid size-14 place-items-center rounded-xl bg-[#1d1814]"><Sprite id={id} size={44} /></div><div><p className="font-display text-xl leading-none">{p!.name}</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[.16em] text-white/40">{p!.age} · {p!.role}</p></div></div>
+      <div className="flex items-center gap-3"><div className="grid size-14 place-items-center rounded-xl bg-[#1d1814]"><Sprite id={id} size={44} /></div><div><p className="font-display text-xl leading-none">{p!.name}</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[.16em] text-white/55">{p!.age} · {p!.role}</p></div></div>
       <p className="mt-4 text-sm leading-relaxed text-white/55">{p!.bio}</p>
-      <div className="mt-4 space-y-1.5 font-mono text-[10px] uppercase tracking-wider text-white/40">
+      <div className="mt-4 space-y-1.5 font-mono text-[10px] uppercase tracking-wider text-white/55">
         {([['trust', p!.traits.trust], ['social', p!.traits.social]] as const).map(([k, v]) => <div key={k} className="flex items-center gap-2"><span className="w-12">{k}</span><span className="h-1 flex-1 rounded-full bg-white/10"><i className="block h-1 rounded-full bg-[#ff9a62]" style={{ width: `${Math.round(v * 100)}%` }} /></span></div>)}
       </div>
     </div>)}
@@ -127,7 +127,7 @@ export function DarkLanding() {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[.07] bg-[#0c0b0a]/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 md:px-8">
         <a href="#top" className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight"><img src="/brand/society-mark.jpg" alt="" className="size-7 rounded-lg" />society agent</a>
-        <div className="hidden items-center gap-8 text-sm text-white/55 md:flex"><a href="#compare" className="hover:text-white">The experiment</a><a href="#people" className="hover:text-white">The people</a><a href="#how" className="hover:text-white">How it works</a></div>
+        <div className="hidden items-center gap-8 text-sm text-white/55 md:flex"><a href="#compare" className="hover:text-white">The experiment</a><a href="#people" className="hover:text-white">The people</a><a href="#how" className="hover:text-white">How it works</a><Link to="/docs" className="hover:text-white">Docs</Link></div>
         <Link to="/app" className="inline-flex items-center gap-1.5 rounded-full bg-[#f3ead9] px-4 py-2 text-sm font-semibold text-black transition hover:bg-white">Open the app <ArrowUpRight size={15} /></Link>
       </nav>
     </header>
@@ -142,14 +142,14 @@ export function DarkLanding() {
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, delay: .2, ease }} className="mt-6 flex flex-wrap items-center gap-3">
           <Link to="/app" className="inline-flex items-center gap-2 rounded-full bg-[#ff9a62] px-7 py-4 text-[15px] font-semibold text-[#1a0f08] transition hover:bg-[#ffb185]">Run a simulation <ArrowRight size={17} /></Link>
           <a href="#compare" className="rounded-full border border-white/15 px-6 py-4 text-[15px] text-white/80 transition hover:border-white/40">See an experiment</a>
-          <span className="text-sm text-white/40">No sign-up needed.</span>
+          <span className="text-sm text-white/55">No sign-up needed.</span>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: .3, ease }} className="mt-9"><LiveTown /></motion.div>
       </div>
     </section>
 
     <section id="compare" className="border-t border-white/[.07] px-5 py-24 md:px-8"><div className="mx-auto max-w-6xl">
-      <Fade><Eyebrow>The experiment</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">One morning. <em className="text-white/45">Three ways to answer it.</em></h2>
+      <Fade><Eyebrow>The experiment</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">One morning. <em className="text-white/55">Three ways to answer it.</em></h2>
         <p className="mt-5 max-w-2xl text-white/55">A water main breaks and the town starts to worry. Do you stay quiet, make an official statement, or quietly reassure a single resident? Same town, same seed, same minute — only your move changes. Across 60 different seeds, a statement calmed the town more than silence every time, and a lone whisper helped less than a statement in most runs.</p></Fade>
       <Fade d={0.1} className="mt-10"><Comparison /></Fade>
     </div></section>
@@ -164,19 +164,19 @@ export function DarkLanding() {
 
 
     <section id="people" className="border-t border-white/[.07] bg-[#0a0908] px-5 py-24 md:px-8"><div className="mx-auto max-w-6xl">
-      <Fade><Eyebrow>The people</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">Nobody is an average. <em className="text-white/45">Everyone has a reason.</em></h2>
+      <Fade><Eyebrow>The people</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">Nobody is an average. <em className="text-white/55">Everyone has a reason.</em></h2>
         <p className="mt-5 max-w-2xl text-white/55">Each resident has a job, a home, a place they drift to, and a different trust in officials and neighbours. That is why the same sentence lands differently on each of them.</p></Fade>
       <Fade d={0.1} className="mt-10"><Residents /></Fade>
     </div></section>
 
     <section id="how" className="border-t border-white/[.07] px-5 py-24 md:px-8"><div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_1.3fr]">
-      <Fade><Eyebrow>How it works</Eyebrow><h2 className="font-display mt-4 text-5xl leading-[1] tracking-[-.02em] md:text-6xl">From a headline <em className="text-white/45">to a finding.</em></h2>
+      <Fade><Eyebrow>How it works</Eyebrow><h2 className="font-display mt-4 text-5xl leading-[1] tracking-[-.02em] md:text-6xl">From a headline <em className="text-white/55">to a finding.</em></h2>
         <Link to="/app" className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#f3ead9] px-6 py-3.5 text-sm font-semibold text-black">Start your first simulation <ArrowRight size={16} /></Link></Fade>
       <div className="divide-y divide-white/10 border-y border-white/10">{steps.map(([t, d], i) => <Fade key={t} d={i * 0.05}><div className="flex gap-6 py-6"><span className="font-display w-12 shrink-0 text-5xl leading-none text-[#ff9a62]/80">{i + 1}</span><div><h3 className="text-xl">{t}</h3><p className="mt-2 leading-relaxed text-white/55">{d}</p></div></div></Fade>)}</div>
     </div></section>
 
     <section className="border-t border-white/[.07] bg-[#0a0908] px-5 py-24 md:px-8"><div className="mx-auto max-w-6xl">
-      <Fade><Eyebrow>Built to be checked</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">Same seed, same town, <em className="text-white/45">same result.</em></h2></Fade>
+      <Fade><Eyebrow>Built to be checked</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">Same seed, same town, <em className="text-white/55">same result.</em></h2></Fade>
       <div className="mt-12 grid gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10 md:grid-cols-3">
         {[['Reproducible', 'Movement and opinion dynamics run on a transparent, seeded model. Replay any run exactly, and compare it with a run where you did nothing.'], ['AI is a voice, not a vote', 'Language models speak for residents — lines on the map, interviews you can hold, a written analysis — but they never change the outcome.'], ['Yours to keep', 'Sign in with a wallet (free, no transaction) to save runs, share a replay link, or export the data. Runs are private until you share them.']].map(([t, d]) => <Fade key={t} className="bg-[#0f0d0c] p-7"><h3 className="font-display text-2xl">{t}</h3><p className="mt-3 text-sm leading-relaxed text-white/55">{d}</p></Fade>)}
       </div>
@@ -187,6 +187,6 @@ export function DarkLanding() {
       <Fade className="relative"><h2 className="font-display mx-auto max-w-3xl text-6xl leading-[.95] tracking-[-.03em] md:text-7xl">What would your town do?</h2>
         <Link to="/app" className="mt-10 inline-flex items-center gap-2 rounded-full bg-[#ff9a62] px-8 py-4 text-base font-semibold text-[#1a0f08] hover:bg-[#ffb185]">Run a simulation <ArrowRight size={18} /></Link></Fade>
     </section>
-    <footer className="border-t border-white/[.07] px-5 py-8 text-center font-mono text-[11px] uppercase tracking-[.18em] text-white/30">Society Agent · early release · map art by Kenney (CC0)</footer>
+    <footer className="border-t border-white/[.07] px-5 py-8 text-center font-mono text-[11px] uppercase tracking-[.18em] text-white/55"><span>Society Agent · early release · map art by Kenney (CC0)</span><nav aria-label="Footer" className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 normal-case tracking-normal"><Link to="/docs" className="tap-auto hover:text-white">Documentation</Link><Link to="/docs/quickstart" className="tap-auto hover:text-white">Quick start</Link><Link to="/docs/limits-honesty" className="tap-auto hover:text-white">Limits &amp; honesty</Link><Link to="/app/lab" className="tap-auto hover:text-white">Experiment lab</Link></nav></footer>
   </div>
 }

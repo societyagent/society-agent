@@ -19,7 +19,7 @@ const ok = (n: string, c: boolean, x = '') => { c ? pass++ : fail++; console.log
 await p.goto(BASE + '/app', { waitUntil: 'networkidle' })
 ok('no credential is readable by page scripts (localStorage / document.cookie)', await p.evaluate((t: string) => !Object.values(localStorage).join('|').includes(t) && !document.cookie.includes(t), sess.token))
 ok('signed-in header shows the wallet', (await p.locator('header').innerText()).includes(acct.address.slice(0, 6)))
-await p.getByRole('button', { name: /Start simulation/ }).click(); await p.waitForURL('**/app/sim')
+await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim')
 await p.getByRole('button', { name: 'Got it' }).click().catch(() => {})
 await p.getByRole('button', { name: '12×' }).click()
 await p.waitForTimeout(3500)

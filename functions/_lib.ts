@@ -1,17 +1,18 @@
 import type { Cfg, Intervention } from '../src/engine/world'
+import { LIMITS } from '../src/engine/limits'
 import { LAYOUT_IDS, MIND_ACTIONS, RESIDENT_LIMIT, ROLES, TOWN_LIMIT, createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
 
 export interface Env { DB: D1Database; HEALTH_TOKEN?: string; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string }
 export type Ctx = { request: Request; env: Env; params: Record<string, string | string[]> }
 
-export const MAX_TICKS = 288
-export const MAX_IVS = 80
-export const MAX_DECISIONS = 40 // agent decisions per run; each has a bounded effect, the cap bounds the total
+export const MAX_TICKS = LIMITS.maxTicks
+export const MAX_IVS = LIMITS.maxInterventions
+export const MAX_DECISIONS = LIMITS.maxDecisionsPerRun // agent decisions per run; each has a bounded effect, the cap bounds the total
 const AUTH_HEADER = 'author' + 'ization'
 export const COOKIE = '__Host-sa_session' // __Host- prefix: Secure, Path=/, no Domain — cannot be set by a sibling subdomain
-export const SESSION_TTL = 60 * 60 * 24 * 7
+export const SESSION_TTL = LIMITS.sessionTtlSec
 
-export const MAX_RUNS_PER_OWNER = 200
+export const MAX_RUNS_PER_OWNER = LIMITS.maxRunsPerOwner
 const API_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cross-origin-resource-policy': 'same-origin' }
 export const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), { status, headers: { ...API_HEADERS, ...headers } })
@@ -78,7 +79,7 @@ export function sanitizeCfg(input: unknown): Cfg | null {
     question: str(raw.question, 400),
     template: str(raw.template, 24, 'water'),
     axis: [str(axis[0], 24, 'Low'), str(axis[1], 24, 'High')],
-    population: Math.round(num(raw.population, 6, 16, 12)),
+    population: Math.round(num(raw.population, LIMITS.town.minResidents, LIMITS.town.maxResidents, 12)),
     seed: Math.floor(num(raw.seed, 0, 2 ** 31 - 1, 1)),
     news: {
       text: str(news.text, 240),

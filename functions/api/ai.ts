@@ -1,3 +1,4 @@
+import { LIMITS } from '../../src/engine/limits'
 import { MIND_ACTIONS, personaOf } from '../../src/engine/world'
 import { allow, clientIp, fail, json, readJson, sessionAddress, type Ctx } from '../_lib'
 
@@ -44,9 +45,9 @@ const personaBlock = (id: number) => {
 export const onRequestPost = async (ctx: Ctx) => {
   const me = await sessionAddress(ctx)
   if (!me) return fail(401, 'Sign in with your wallet to use AI features')
-  if (!(await allow(ctx.env, `ai:${me}`, 80, 3600))) return fail(429, 'AI limit reached for this hour. Try again later.')
-  if (!(await allow(ctx.env, `aip:${clientIp(ctx.request)}`, 120, 3600))) return fail(429, 'Too many AI requests from this network. Try again later.')
-  if (!(await allow(ctx.env, 'ai:global', 1500, 3600))) return fail(429, 'AI is busy right now. Try again in a few minutes.')
+  if (!(await allow(ctx.env, `ai:${me}`, LIMITS.rate.aiWallet.limit, LIMITS.rate.aiWallet.windowSec))) return fail(429, 'AI limit reached for this hour. Try again later.')
+  if (!(await allow(ctx.env, `aip:${clientIp(ctx.request)}`, LIMITS.rate.aiNetwork.limit, LIMITS.rate.aiNetwork.windowSec))) return fail(429, 'Too many AI requests from this network. Try again later.')
+  if (!(await allow(ctx.env, 'ai:global', LIMITS.rate.aiGlobal.limit, LIMITS.rate.aiGlobal.windowSec))) return fail(429, 'AI is busy right now. Try again in a few minutes.')
   if (!ctx.env.AI_API_KEY || !ctx.env.AI_BASE_URL || !ctx.env.AI_MODEL) return fail(503, 'AI is not configured')
   type Body = Record<string, unknown>
   const body = await readJson<Body>(ctx.request)
@@ -74,7 +75,7 @@ export const onRequestPost = async (ctx: Ctx) => {
 
   /* ── Voices: natural lines for a batch of news-bearing conversations ── */
   if (body.kind === 'voices') {
-    const items = (Array.isArray(body.items) ? body.items : []).slice(0, 6).map((raw: unknown, i: number) => { const it = rec(raw); return {
+    const items = (Array.isArray(body.items) ? body.items : []).slice(0, LIMITS.ai.linesPerVoicesCall).map((raw: unknown, i: number) => { const it = rec(raw); return {
       i, speaker: validId(it.speaker), listener: validId(it.listener), stance: clean(it.stance, 12) || 'neutral', place: clean(it.place, 24),
     } }).filter((it) => personaOf(it.speaker) && personaOf(it.listener) && it.speaker !== it.listener)
     const news = clean(body.news, 240)
@@ -93,7 +94,7 @@ export const onRequestPost = async (ctx: Ctx) => {
   /* ── Minds: residents decide what to do next. The reply is validated here and RECORDED by the client as a run input; the engine never calls a model. ── */
   if (body.kind === 'decide') {
     const news = clean(body.news, 240)
-    const items = (Array.isArray(body.items) ? body.items : []).slice(0, 3).map((raw: unknown, i: number) => {
+    const items = (Array.isArray(body.items) ? body.items : []).slice(0, LIMITS.ai.residentsPerMindCall).map((raw: unknown, i: number) => {
       const it = rec(raw)
       return { i, agent: validId(it.agent), place: clean(it.place, 24), feeling: num(it.feeling, -1, 1), near: Math.round(num(it.near, 0, 15, 0)), from: clean(it.from, 40), memory: (Array.isArray(it.memory) ? it.memory : []).slice(0, 4).map((m: unknown) => clean(m, 140)).filter(Boolean) }
     }).filter((it) => personaOf(it.agent))

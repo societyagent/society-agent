@@ -1,8 +1,9 @@
+import { LIMITS } from '../../../src/engine/limits'
 import { createSiweMessage } from 'viem/siwe'
 import { getAddress, isAddress } from 'viem'
 import { allow, clientIp, fail, json, randomToken, readJson, type Ctx } from '../../_lib'
 
-const CHALLENGE_TTL = 300
+const CHALLENGE_TTL = LIMITS.challengeTtlSec
 
 /**
  * POST /api/auth/challenge {address, chainId?} -> a single-use EIP-4361 (Sign-In with Ethereum) message.
@@ -15,7 +16,7 @@ export const onRequestPost = async (ctx: Ctx) => {
   if (!address || !isAddress(address)) return fail(400, 'Invalid wallet address')
   const chainId = body?.chainId === undefined ? 1 : body.chainId
   if (!Number.isInteger(chainId) || chainId < 1 || chainId > 2 ** 31 - 1) return fail(400, 'Invalid chain id')
-  if (!(await allow(ctx.env, `ch:${clientIp(ctx.request)}`, 20, 300))) return fail(429, 'Too many attempts. Try again in a few minutes.')
+  if (!(await allow(ctx.env, `ch:${clientIp(ctx.request)}`, LIMITS.rate.challenge.limit, LIMITS.rate.challenge.windowSec))) return fail(429, 'Too many attempts. Try again in a few minutes.')
   const addr = getAddress(address)
   const url = new URL(ctx.request.url)
   const id = randomToken(16) // 32 hex chars: valid SIWE nonce, also the challenge id

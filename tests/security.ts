@@ -113,7 +113,9 @@ check('C3', 'P3', 'AI endpoint truncates oversized prompts instead of forwarding
 const html = (await call('/')).text
 const js = html.match(/\/assets\/index-[^"']+\.js/)?.[0]
 const bundle = js ? (await call(js)).text : ''
-const bad = /(sk-[A-Za-z0-9]{20,}|AI_API_KEY|BEGIN [A-Z ]*PRIVATE KEY|anthropic|openai|deepseek|vikey|routers9|totalum)/i.exec(bundle + html)
+// Variable NAMES are public documentation (the self-hosting page lists them). What must never ship is a VALUE: a key-shaped string,
+// a private key, an assignment like AI_API_KEY="…long value…", or an upstream provider name.
+const bad = /(sk-[A-Za-z0-9]{20,}|(?:AI_API_KEY|HEALTH_TOKEN|ALERT_WEBHOOK)["']?\s*[:=]\s*["'`][^"'`\s…]{8,}|BEGIN [A-Z ]*PRIVATE KEY|anthropic|openai|deepseek|vikey|routers9|totalum)/i.exec(bundle + html)
 check('P1', 'P1', 'client bundle contains no secrets or upstream provider names', !bad, bad ? `found "${bad[0]}"` : `${Math.round(bundle.length / 1024)} KB scanned`)
 const brands = await call('/brands/claude-code.jpg')
 check('P2', 'P2', 'no third-party brand assets are shipped', brands.status === 404 || !(brands.headers.get('content-type') ?? '').startsWith('image/'), `/brands/claude-code.jpg -> ${brands.status}`)

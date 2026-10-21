@@ -1,3 +1,4 @@
+import { LIMITS } from '../../../src/engine/limits'
 import { allow, audit, fail, json, MAX_RUNS_PER_OWNER, MAX_TICKS, randomToken, readJson, sanitizeCfg, sanitizeIvs, sessionAddress, simulate, type Ctx } from '../../_lib'
 
 /** GET /api/runs — the signed-in user's saved runs (summary only). */
@@ -15,7 +16,7 @@ export const onRequestGet = async (ctx: Ctx) => {
 export const onRequestPost = async (ctx: Ctx) => {
   const owner = await sessionAddress(ctx)
   if (!owner) return fail(401, 'Not signed in')
-  if (!(await allow(ctx.env, `run:${owner}`, 40, 3600))) return fail(429, 'Run limit reached. Try again later.')
+  if (!(await allow(ctx.env, `run:${owner}`, LIMITS.rate.saveRun.limit, LIMITS.rate.saveRun.windowSec))) return fail(429, 'Run limit reached. Try again later.')
   const count = await ctx.env.DB.prepare('SELECT COUNT(*) AS n FROM runs WHERE owner = ?').bind(owner).first<{ n: number }>()
   if ((count?.n ?? 0) >= MAX_RUNS_PER_OWNER) return fail(409, `You have ${MAX_RUNS_PER_OWNER} saved runs. Delete some to save new ones.`)
   const body = await readJson<{ cfg?: unknown; ticks?: number; interventions?: unknown }>(ctx.request)

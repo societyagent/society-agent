@@ -1,3 +1,4 @@
+import { LIMITS } from '../../../src/engine/limits'
 import { getAddress, isAddress, verifyMessage } from 'viem'
 import { allow, audit, clientIp, fail, json, randomToken, readJson, sessionCookie, sha256, SESSION_TTL, type Ctx } from '../../_lib'
 
@@ -6,7 +7,7 @@ export const onRequestPost = async (ctx: Ctx) => {
   const body = await readJson<{ id?: string; address?: string; signature?: string }>(ctx.request)
   if (!body?.id || !body.address || !body.signature || !isAddress(body.address)) return fail(400, 'Missing or invalid fields')
   if (!/^0x[0-9a-fA-F]{130}$/.test(body.signature)) return fail(401, 'Invalid signature')
-  if (!(await allow(ctx.env, `vf:${clientIp(ctx.request)}`, 30, 300))) return fail(429, 'Too many attempts. Try again in a few minutes.')
+  if (!(await allow(ctx.env, `vf:${clientIp(ctx.request)}`, LIMITS.rate.verify.limit, LIMITS.rate.verify.windowSec))) return fail(429, 'Too many attempts. Try again in a few minutes.')
   const addr = getAddress(body.address)
   const now = Math.floor(Date.now() / 1000)
 

@@ -18,7 +18,7 @@ const ok = (n: string, c: boolean, x = '') => { c ? pass++ : fail++; console.log
 const read = async (pg: typeof p) => { const t = await pg.locator('body').innerText(); return { heard: t.match(/Heard the news\s*(\d+)%/)?.[1], opinion: t.match(/Avg\. opinion\s*(-?\d\.\d+)/)?.[1], dis: t.match(/Disagreement\s*(\d\.\d+)/)?.[1], conv: t.match(/Conversations\s*(\d+)/)?.[1] } }
 
 await p.goto(BASE + '/app', { waitUntil: 'networkidle' })
-await p.getByRole('button', { name: /Start simulation/ }).click(); await p.waitForURL('**/app/sim')
+await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim')
 await p.getByRole('button', { name: 'Got it' }).click().catch(() => {})
 await p.getByRole('button', { name: /Agent minds off/ }).click()
 ok('Agent minds toggles on', await p.getByRole('button', { name: /Agent minds on/ }).count() === 1)

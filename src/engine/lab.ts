@@ -1,3 +1,4 @@
+import { LIMITS } from './limits'
 import { LAYOUT_IDS, RESIDENT_LIMIT, ROLES, TOWN_LIMIT, createState, personaOf, intervene, stepWorld, type Cfg, type Intervention, type LayoutId, type ResidentTweak, type TownCfg } from './world'
 import { TEMPLATES, TOWN_PRESETS, buildCfg, townOf } from './templates'
 
@@ -28,7 +29,7 @@ export function cleanResidents(raw: unknown, population: number): Record<string,
   return Object.keys(out).length ? out : undefined
 }
 const cleanLayout = (v: unknown): LayoutId | undefined => ((LAYOUT_IDS as readonly string[]).includes(String(v)) && v !== 'classic' ? (v as LayoutId) : undefined)
-export const MAX_RUNS = 600 // seeds x conditions: keeps a lab run to a few seconds
+export const MAX_RUNS = LIMITS.lab.maxSimulatedDays // seeds x conditions: keeps a lab run to a few seconds
 export const hourToTick = (hour: number) => Math.max(0, Math.round((hour - 7) * 6)) // the day starts at 07:00, one tick = 10 minutes
 export const hourLabel = (hour: number) => `${String(hour % 24).padStart(2, '0')}:00`
 
@@ -172,7 +173,7 @@ export function sanitizeExperiment(raw: unknown): Experiment | null {
   const tpl = TEMPLATES.find((t) => t.id === r.template); if (!tpl) return null
   const population = Math.round(num(r.population, 6, 16, 12))
   const conds: Condition[] = []
-  for (const c of (Array.isArray(r.conds) ? r.conds : []).slice(0, 4)) {
+  for (const c of (Array.isArray(r.conds) ? r.conds : []).slice(0, LIMITS.lab.maxOptions)) {
     if (!c || typeof c !== 'object') return null
     const q = c as Record<string, unknown>
     if (!['none', 'announce', 'whisper'].includes(String(q.kind))) return null
@@ -182,7 +183,7 @@ export function sanitizeExperiment(raw: unknown): Experiment | null {
     conds.push({ id: `c${conds.length + 1}`, label: str(q.label, 40) || `Condition ${conds.length + 1}`, kind, hour: Math.round(num(q.hour, 8, 22, 12)), agent: Math.round(num(q.agent, 0, 15, 0)), text, stance: num(q.stance, -1, 1, 0), ...(tw && tw !== 'default' ? { town: tw } : {}), ...(cleanLayout(q.layout) ? { layout: cleanLayout(q.layout) } : {}), ...(cleanResidents(q.residents, population) ? { residents: cleanResidents(q.residents, population) } : {}) })
   }
   if (conds.length < 2) return null
-  const n = Math.round(num(r.n, 10, 200, 60))
+  const n = Math.round(num(r.n, LIMITS.lab.minTowns, LIMITS.lab.maxTowns, 60))
   const outcome = (Object.keys(OUTCOMES) as OutcomeId[]).includes(r.outcome as OutcomeId) ? (r.outcome as OutcomeId) : 'final'
   const baseTown = TOWN_PRESETS.some((p) => p.id === r.town) && r.town !== 'default' ? (r.town as string) : undefined
   let custom: CustomCfg | undefined

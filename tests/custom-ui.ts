@@ -10,8 +10,8 @@ const ok = (n: string, c: boolean, x = '') => { c ? pass++ : fail++; console.log
 /* ── 1. dashboard: write your own scenario, pick a town, start ── */
 const p = await page()
 await p.goto(BASE + '/app', { waitUntil: 'networkidle' })
-ok('four scenario cards, including "Your own scenario"', (await p.locator('h3').allInnerTexts()).includes('Your own scenario'))
-await p.locator('h3', { hasText: 'Your own scenario' }).click()
+ok('four scenario choices, including "Your own scenario", exposed as a radio group', (await p.getByRole('radiogroup', { name: 'Scenario' }).getByRole('radio').count()) === 4 && await p.getByRole('radio', { name: /Your own scenario/ }).isVisible())
+await p.getByRole('radio', { name: /Your own scenario/ }).click()
 ok('the scenario editor opens by itself for a custom scenario', await p.getByText('One side of the debate').isVisible())
 const NEWS = 'The council will turn the old cinema into a night market.'
 await p.getByLabel('News text').fill(NEWS)
@@ -19,7 +19,7 @@ await p.getByLabel('One side of the debate').fill('Keep the cinema'); await p.ge
 await p.getByRole('button', { name: 'student', exact: true }).click()   // adds student to the defaults (official, organizer) -> 3
 await p.getByRole('button', { name: 'official', exact: true }).click()  // removes official
 await p.getByRole('button', { name: 'Suspicious', exact: true }).click()
-await p.getByRole('button', { name: /Start simulation/ }).click(); await p.waitForURL('**/app/sim')
+await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim')
 await p.getByRole('button', { name: 'Got it' }).click().catch(() => {})
 const head = await p.locator('main').first().innerText()
 ok('the simulation shows the author\'s own news', head.includes(NEWS))
@@ -64,7 +64,7 @@ ok('"watch a town" opens the simulation in that option\'s kind of town', /ISOLAT
 
 /* ── 4. mobile ── */
 const m = await page(390, 844)
-await m.goto(BASE + '/app', { waitUntil: 'networkidle' }); await m.locator('h3', { hasText: 'Your own scenario' }).click(); await m.waitForTimeout(300)
+await m.goto(BASE + '/app', { waitUntil: 'networkidle' }); await m.getByRole('radio', { name: /Your own scenario/ }).click(); await m.waitForTimeout(300)
 ok('mobile: no horizontal overflow on the scenario editor', !(await m.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)))
 await m.goto(BASE + '/app/lab', { waitUntil: 'networkidle' }); await m.getByRole('button', { name: 'Your own scenario' }).click(); await m.waitForTimeout(300)
 ok('mobile: no horizontal overflow in the lab editor', !(await m.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)))
