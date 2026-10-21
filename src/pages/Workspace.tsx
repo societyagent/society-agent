@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Bookmark, Check, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet } from 'lucide-react'
+import { ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { api, useAuth, type Session } from '@/lib/auth'
 import { PLACES, clock, createState, dayClock, intervene, stepWorld, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
@@ -66,14 +66,48 @@ export function Dashboard() {
       <div className="mt-8 grid gap-3 md:grid-cols-3">
         {TEMPLATES.map((x) => <button key={x.id} onClick={() => { setPick(x.id); setText('') }} className={`rounded-2xl border p-5 text-left transition ${pick === x.id ? 'border-violet-300/60 bg-violet-300/[.08]' : 'border-white/10 bg-white/[.025] hover:border-white/25'}`}><h3 className="text-lg">{x.title}</h3><p className="mt-2 text-sm leading-relaxed text-white/50">{x.blurb}</p><p className="mt-4 font-mono text-[10px] uppercase tracking-[.14em] text-white/35">{x.axis[0]} ↔ {x.axis[1]}</p></button>)}
       </div>
-      <div className="mt-6 grid gap-4 rounded-2xl border border-white/10 bg-white/[.025] p-5 md:grid-cols-2">
-        <label className="block text-sm text-white/70">Scenario name<input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.title} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-violet-300/50" /></label>
-        <label className="block text-sm text-white/70">The news that hits town (editable)<input value={text} onChange={(e) => setText(e.target.value)} placeholder={t.news.text} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-violet-300/50" /></label>
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[.025] p-5">
+        <p className="text-sm text-white/70">You picked <span className="font-medium text-white">{t.title}</span>. The news that will hit town:</p>
+        <p className="mt-2 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm leading-relaxed text-white/80">“{text.trim() || t.news.text}”</p>
+        <details className="group mt-4"><summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm text-violet-200 hover:underline"><ChevronDown size={15} className="transition group-open:rotate-180" /> Customize the news (optional)</summary>
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <label className="block text-sm text-white/70">Scenario name<input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.title} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-violet-300/50" /></label>
+            <label className="block text-sm text-white/70">News text<input value={text} onChange={(e) => setText(e.target.value)} placeholder={t.news.text} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-violet-300/50" /></label>
+          </div></details>
       </div>
-      <button onClick={start} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-semibold text-black"><Play size={16} fill="currentColor" /> Start simulation</button>
+      <div className="mt-6 flex flex-wrap items-center gap-4"><button onClick={start} className="inline-flex items-center gap-2 rounded-xl bg-white px-7 py-4 text-base font-semibold text-black"><Play size={17} fill="currentColor" /> Start simulation</button><p className="text-sm text-white/40">About 1 minute at 4× speed · no sign-in needed</p></div>
       {auth.session && <p className="mt-4 text-sm text-white/40">Signed in as {short(auth.session.address)}. <Link to="/app/runs" className="text-violet-200 underline-offset-4 hover:underline">View saved runs</Link></p>}
     </div>
   </main>
+}
+
+/* ───────── Onboarding ───────── */
+const TOUR_KEY = 'society-agent-tour-v1'
+function Tour({ onClose }: { onClose: () => void }) {
+  const steps = [
+    ['Watch', 'The day starts by itself. At 07:20 the news breaks and a couple of residents hear it first; everyone then walks the town and talks. Use Pause or 12× to control time.'],
+    ['Inspect', 'Click any resident on the map to read their bio, mood and memories — and see who they heard it from.'],
+    ['Step in', 'On the right, send a public announcement or whisper to one person. Try it around the time half the town has heard.'],
+    ['Read', 'When the day ends, “What happened” explains the outcome. Compare it with a run where you stayed silent.'],
+  ]
+  return <section className="mb-4 rounded-2xl border border-violet-300/30 bg-violet-300/[.06] p-5">
+    <div className="flex items-start justify-between gap-3"><div><h2 className="text-base">How this works — 4 steps</h2><p className="mt-1 text-sm text-white/55">You’re watching a small town react to one piece of news. Nothing here is real data — it’s a model you can poke at.</p></div><button onClick={onClose} aria-label="Dismiss guide" className="rounded-lg border border-white/10 p-1.5 text-white/50 hover:text-white"><X size={15} /></button></div>
+    <ol className="mt-4 grid gap-3 md:grid-cols-4">{steps.map(([t, d], i) => <li key={t} className="rounded-xl border border-white/10 bg-black/25 p-3"><p className="flex items-center gap-2 text-sm font-medium"><span className="grid size-5 place-items-center rounded-full bg-violet-300 text-[11px] font-semibold text-black">{i + 1}</span>{t}</p><p className="mt-2 text-xs leading-relaxed text-white/55">{d}</p></li>)}</ol>
+    <button onClick={onClose} className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black">Got it</button>
+  </section>
+}
+
+/** One plain-language sentence about what is happening right now. */
+function narrate(st: State, events: Ev[], done: boolean, started: boolean, total: number): string {
+  if (!started) return 'The day is about to begin. The news breaks at 07:20 — watch who hears it first.'
+  const heard = st.agents.filter((a) => a.informed)
+  if (!heard.length) return 'Quiet morning. Nobody has heard the news yet.'
+  const mood = heard.reduce((n, a) => n + a.opinion, 0) / heard.length
+  const talk = [...events].reverse().find((e) => e.type === 'say')
+  const where = talk?.place ? PLACES.find((p) => p.id === talk.place)?.name : ''
+  const base = `${heard.length} of ${total} residents have heard the news${heard.length === total ? '' : `, ${total - heard.length} still don’t know`}. On average they feel ${stanceLabel(mood)}.`
+  if (done) return `The day is over. ${base} Scroll down for what happened.`
+  return talk ? `${base} Latest: ${talk.text.split(': ')[0]}${where ? ` at ${where}` : ''}.` : base
 }
 
 /* ───────── Simulation ───────── */
@@ -97,6 +131,8 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
   const [saved, setSaved] = useState<{ id: string; shared: boolean } | null>(replay ? { id: replay.id, shared: replay.shared } : null)
   const [saveErr, setSaveErr] = useState(''); const [copied, setCopied] = useState(false)
   const MAX = replay?.ticks ?? 144
+  const [tour, setTour] = useState(() => { try { return !replay && localStorage.getItem(TOUR_KEY) !== '1' } catch { return !replay } })
+  const closeTour = () => { setTour(false); try { localStorage.setItem(TOUR_KEY, '1') } catch { /* private mode */ } }
   // AI layer — purely cosmetic/explanatory: it never changes simulation state, so runs stay reproducible.
   const [voicesOn, setVoicesOn] = useState(false)
   const [voiceNote, setVoiceNote] = useState('')
@@ -204,20 +240,22 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0">
+          {tour && <Tour onClose={closeTour} />}
+          <p className="mb-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/75" aria-live="polite">{narrate(s, events, done, s.tick > 0, s.agents.length)}</p>
           <Town agents={s.agents} selected={sel} mode={mode} onSelect={setSel} tick={s.tick} />
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-white/45">
             <div className="flex overflow-hidden rounded-lg border border-white/10">{(['opinion', 'informed'] as const).map((m) => <button key={m} onClick={() => setMode(m)} className={`px-3 py-1.5 ${mode === m ? 'bg-white/15 text-white' : 'hover:text-white'}`}>{m === 'opinion' ? 'Color: opinion' : 'Color: who knows'}</button>)}</div>
-            <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#5b6178]" /> hasn't heard</span>
+            <span className="text-white/30">Dot above each head =</span><span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#7c8499]" /> hasn't heard</span>
             <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#78c896]" /> calm / skeptical</span>
             <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#ef5a46]" /> alarmed</span>
             {!replay && (auth.session
               ? <button onClick={() => setVoicesOn((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${voicesOn ? 'border-violet-300/60 bg-violet-300/15 text-violet-100' : 'border-white/10 hover:text-white'}`}><Mic size={13} /> AI voices {voicesOn ? 'on' : 'off'}</button>
               : <button onClick={auth.signIn} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 hover:text-white"><Mic size={13} /> Sign in for AI voices</button>)}
             {voiceNote && <span className="text-amber-200/80">{voiceNote}</span>}
-            <span>Click a resident to inspect.</span>
+            <button onClick={() => setTour(true)} className="underline-offset-4 hover:text-white hover:underline">How does this work?</button>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[['Heard the news', `${Math.round((last?.informed ?? 0) * 100)}%`], [`Avg. opinion`, last ? `${last.mean.toFixed(2)} · ${stanceLabel(last.mean)}` : '—'], ['Disagreement', last ? last.spread.toFixed(2) : '—'], ['Conversations', String(last?.talks ?? 0)]].map(([k, v]) => <div key={k} className="rounded-xl border border-white/10 bg-white/[.025] p-4"><p className="text-xs text-white/40">{k}</p><p className="mt-1 text-xl tabular-nums">{v}</p></div>)}
+            {[['Heard the news', `${Math.round((last?.informed ?? 0) * 100)}%`, `of ${s.agents.length} residents`], [`Avg. opinion`, last ? `${last.mean.toFixed(2)} · ${stanceLabel(last.mean)}` : '—', `${cfg.axis[0]} −1 … +1 ${cfg.axis[1]}`], ['Disagreement', last ? last.spread.toFixed(2) : '—', '0 = everyone agrees'], ['Conversations', String(last?.talks ?? 0), 'so far today']].map(([k, v, h]) => <div key={k} className="rounded-xl border border-white/10 bg-white/[.025] p-4"><p className="text-xs text-white/40">{k}</p><p className="mt-1 text-xl tabular-nums">{v}</p><p className="mt-1 text-[11px] leading-snug text-white/30">{h}</p></div>)}
           </div>
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[.025] p-4"><Chart metrics={metrics} axis={cfg.axis} /></div>
 
@@ -263,12 +301,12 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
               {auth.session ? <form onSubmit={(e) => { e.preventDefault(); ask() }} className="mt-2 flex gap-2"><input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder={agent.informed ? 'How are you feeling about this?' : 'Have you heard anything today?'} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs outline-none placeholder:text-white/25 focus:border-violet-300/50" /><button disabled={asking || !question.trim()} className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-40">{asking ? '…' : 'Ask'}</button></form>
                 : <button onClick={auth.signIn} className="mt-2 w-full rounded-lg border border-white/15 px-3 py-2 text-xs text-white/70">Sign in to interview residents</button>}
               {askErr && <p className="mt-2 text-xs text-rose-300">{askErr}</p>}
-            </div> : <p className="py-6 text-center text-sm text-white/40">Click a resident on the map to read their bio, mood, and memory.</p>}
+            </div> : <div className="py-5 text-center"><p className="text-sm text-white/60">Click a resident on the map</p><p className="mt-1 text-xs leading-relaxed text-white/35">to read their bio, how they feel about the news, who told them, and what they remember{auth.session ? ' — and interview them' : ''}.</p></div>}
           </section>
 
           <section className="rounded-2xl border border-white/10 bg-white/[.025] p-4">
             <h2 className="flex items-center gap-2 text-sm"><Megaphone size={15} className="text-violet-300" /> Step in</h2>
-            <p className="mt-1 text-xs text-white/40">Change what the town hears and watch opinions react.</p>
+            <p className="mt-1 text-xs leading-relaxed text-white/40">{s.tick === 0 ? 'Available once the simulation has started.' : `Tell the town something and watch opinions react. ${Math.round((last?.informed ?? 0) * 100) < 40 ? 'Tip: wait until more people have heard the news.' : 'Good moment to step in.'}`}</p>
             <select value={String(target)} onChange={(e) => setTarget(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="mt-3 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none"><option value="all">Public announcement (everyone)</option>{s.agents.map((a) => <option key={a.id} value={a.id}>Whisper to {a.name}</option>)}</select>
             <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="e.g. Water will be restored by 6pm. No danger." className="mt-2 w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-white/25 focus:border-violet-300/50" />
             <div className="mt-2 flex items-center gap-2 text-xs text-white/50"><span>{cfg.axis[0]}</span><input type="range" min={-1} max={1} step={0.1} value={stance} onChange={(e) => setStance(Number(e.target.value))} className="flex-1 accent-violet-400" /><span>{cfg.axis[1]}</span></div>
