@@ -65,3 +65,9 @@ The engine never calls a model. Each decision is **recorded as a run input**, va
 ## Experiment Lab
 
 `/app/lab` runs one scenario across dozens of random towns under up to four options and compares them. Every option is run on the **same** towns (paired design), so each comparison is "this town with and without your move". Results include a plain-language verdict, the number of towns that agree, a 95% interval, an uncertainty-band chart, a CSV export and a share link that reproduces the exact numbers. It runs in the browser, needs no sign-in, and uses the same deterministic engine as the app (`src/engine/lab.ts`).
+
+## Your own scenario and different kinds of town
+
+- **Your own scenario** (dashboard and lab): write the news, name the two sides of the debate, set how the news leans and pick who hears it first (up to four roles). The server validates everything: unknown roles are dropped, values are clamped.
+- **What kind of town**: Everyday, Trusting, Suspicious, Tight-knit, Isolated, Nervous or Easygoing. A town character is a bounded shift (±0.3) added to every resident's traits. A town with no character is byte-identical to the original engine, so every earlier saved run still replays exactly (`tests/custom.test.ts` pins this).
+- In the lab, each option can run in its own town, and *Does the kind of town matter?* sets up the same news in three towns with nobody stepping in. Measured on 60 towns: news reaches half the town in about 1.4 h in a tight-knit town, 2.8 h in an everyday town and 4.5 h in an isolated one.

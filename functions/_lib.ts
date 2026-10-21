@@ -1,5 +1,5 @@
 import type { Cfg, Intervention } from '../src/engine/world'
-import { MIND_ACTIONS, createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
+import { MIND_ACTIONS, ROLES, TOWN_LIMIT, createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
 
 export interface Env { DB: D1Database; HEALTH_TOKEN?: string; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string }
 export type Ctx = { request: Request; env: Env; params: Record<string, string | string[]> }
@@ -84,9 +84,12 @@ export function sanitizeCfg(input: unknown): Cfg | null {
       text: str(news.text, 240),
       stance: num(news.stance, -1, 1, 0.5),
       startTick: Math.round(num(news.startTick, 0, 40, 2)),
-      seedRoles: Array.isArray(news.seedRoles) ? (news.seedRoles as unknown[]).map((r) => str(r, 20)).filter(Boolean).slice(0, 6) : ['official'],
+      seedRoles: Array.isArray(news.seedRoles) ? (news.seedRoles as unknown[]).map((r) => str(r, 20)).filter((r) => (ROLES as readonly string[]).includes(r)).slice(0, 4) : ['official'],
     },
   }
+  const town = obj(raw.town), r2 = (v: unknown) => Math.round(num(v, -TOWN_LIMIT, TOWN_LIMIT, 0) * 100) / 100
+  const t = { trust: r2(town.trust), social: r2(town.social), bias: r2(town.bias) }
+  if (t.trust || t.social || t.bias) cfg.town = t
   return cfg.news.text ? cfg : null
 }
 

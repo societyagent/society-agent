@@ -3,8 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { ArrowRight, BrainCircuit, FlaskConical, ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { api, useAuth } from '@/lib/auth'
-import { MIND_ACTIONS, PLACES, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
-import { TEMPLATES, buildCfg } from '@/engine/templates'
+import { MIND_ACTIONS, PLACES, ROLES, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
+import { TEMPLATES, TOWN_PRESETS, buildCfg, townName, townOf } from '@/engine/templates'
 import { useSim, useSimClock } from '@/engine/useSim'
 
 type Speed = 1 | 4 | 12
@@ -60,25 +60,45 @@ export function Dashboard() {
   const [pick, setPick] = useState(TEMPLATES[0].id)
   const [name, setName] = useState('')
   const [text, setText] = useState('')
+  const [town, setTown] = useState('default')
+  const [people, setPeople] = useState(12)
+  const [axisA, setAxisA] = useState('Disagree'), [axisB, setAxisB] = useState('Agree')
+  const [lean, setLean] = useState(0.3)
+  const [first, setFirst] = useState<string[]>(['official', 'organizer'])
   const t = TEMPLATES.find((x) => x.id === pick)!
-  const start = () => nav('/app/sim', { state: { cfg: buildCfg(pick, { name: name.trim() || undefined, text: text.trim() || undefined }) } })
+  const custom = pick === 'custom'
+  const start = () => nav('/app/sim', { state: { cfg: buildCfg(pick, {
+    name: name.trim() || undefined, text: text.trim() || undefined, population: people, town: townOf(town),
+    ...(custom ? { axis: [axisA.trim() || 'Disagree', axisB.trim() || 'Agree'] as [string, string], stance: lean, seedRoles: first } : {}),
+  }) } })
   return <main className="min-h-screen bg-[#0c0b0a] text-white">
     <Header />
     <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
       <p className="text-xs uppercase tracking-[.2em] text-ember-200/60">New simulation</p>
       <h1 className="mt-3 text-3xl tracking-[-.04em] md:text-5xl">What should the town react to?</h1>
       <p className="mt-3 max-w-2xl text-white/55">Pick a situation. A town of residents with their own personalities, routines, and memories will live through it — you watch, step in, and read what changed.</p>
-      <div className="mt-8 grid gap-3 md:grid-cols-3">
-        {TEMPLATES.map((x) => <button key={x.id} onClick={() => { setPick(x.id); setText('') }} className={`rounded-2xl border p-5 text-left transition ${pick === x.id ? 'border-ember-300/60 bg-ember-300/[.08]' : 'border-white/10 bg-white/[.025] hover:border-white/25'}`}><h3 className="text-lg">{x.title}</h3><p className="mt-2 text-sm leading-relaxed text-white/50">{x.blurb}</p><p className="mt-4 font-mono text-[10px] uppercase tracking-[.14em] text-white/35">{x.axis[0]} ↔ {x.axis[1]}</p></button>)}
+      <div className="mt-8 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {TEMPLATES.map((x) => <button key={x.id} onClick={() => { setPick(x.id); setText(''); if (x.id === 'custom') setName('') }} className={`rounded-2xl border p-5 text-left transition ${pick === x.id ? 'border-ember-300/60 bg-ember-300/[.08]' : 'border-white/10 bg-white/[.025] hover:border-white/25'}`}><h3 className="text-lg">{x.title}</h3><p className="mt-2 text-sm leading-relaxed text-white/50">{x.blurb}</p><p className="mt-4 font-mono text-[10px] uppercase tracking-[.14em] text-white/35">{x.axis[0]} ↔ {x.axis[1]}</p></button>)}
       </div>
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/[.025] p-5">
         <p className="text-sm text-white/70">You picked <span className="font-medium text-white">{t.title}</span>. The news that will hit town:</p>
         <p className="mt-2 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm leading-relaxed text-white/80">“{text.trim() || t.news.text}”</p>
-        <details className="group mt-4"><summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm text-ember-200 hover:underline"><ChevronDown size={15} className="transition group-open:rotate-180" /> Customize the news (optional)</summary>
+        {custom && !text.trim() && <p className="mt-2 text-xs text-white/40">This is the example news. Write your own under “Write your scenario”.</p>}
+        <details className="group mt-4" open={custom}><summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm text-ember-200 hover:underline"><ChevronDown size={15} className="transition group-open:rotate-180" /> {custom ? 'Write your scenario' : 'Customize the news (optional)'}</summary>
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             <label className="block text-sm text-white/70">Scenario name<input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.title} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-ember-300/50" /></label>
-            <label className="block text-sm text-white/70">News text<input value={text} onChange={(e) => setText(e.target.value)} placeholder={t.news.text} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-ember-300/50" /></label>
-          </div></details>
+            <label className="block text-sm text-white/70">News text<input value={text} maxLength={240} onChange={(e) => setText(e.target.value)} placeholder={t.news.text} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-ember-300/50" /></label>
+          </div>
+          {custom && <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="block text-sm text-white/70">One side of the debate<input value={axisA} maxLength={24} onChange={(e) => setAxisA(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-ember-300/50" /></label>
+            <label className="block text-sm text-white/70">The other side<input value={axisB} maxLength={24} onChange={(e) => setAxisB(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-ember-300/50" /></label>
+            <label className="block text-sm text-white/70 md:col-span-2">How the news leans: <b className="font-normal text-white">{lean < -0.2 ? `toward “${axisA}”` : lean > 0.2 ? `toward “${axisB}”` : 'neutral'}</b><input type="range" min={-1} max={1} step={0.1} value={lean} onChange={(e) => setLean(Number(e.target.value))} className="mt-3 w-full accent-[#ff9a62]" /><span className="mt-1 block text-xs text-white/40">Residents have opinions of their own, so this nudges the whole town relative to neutral; it does not decide where everyone ends up.</span></label>
+            <fieldset className="md:col-span-2"><legend className="text-sm text-white/70">Who hears it first <span className="text-white/40">(pick up to 4)</span></legend><div className="mt-2 flex flex-wrap gap-2">{ROLES.map((r) => { const on = first.includes(r); return <button key={r} type="button" aria-pressed={on} onClick={() => setFirst((cur) => { const next = on ? cur.filter((q) => q !== r) : [...cur, r].slice(-4); return next.length ? next : cur })} className={`rounded-full border px-3 py-1.5 text-sm capitalize ${on ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 text-white/55 hover:text-white'}`}>{r}</button> })}</div></fieldset>
+          </div>}</details>
+        <div className="mt-5 grid gap-4 border-t border-white/10 pt-5 md:grid-cols-[1fr_auto]">
+          <div><p className="text-sm text-white/70">What kind of town is it?</p><div className="mt-2 flex flex-wrap gap-2">{TOWN_PRESETS.map((p) => <button key={p.id} type="button" aria-pressed={town === p.id} title={p.blurb} onClick={() => setTown(p.id)} className={`rounded-full border px-3 py-1.5 text-sm ${town === p.id ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 text-white/55 hover:text-white'}`}>{p.label.replace(' town', '')}</button>)}</div><p className="mt-2 text-xs text-white/40">{TOWN_PRESETS.find((p) => p.id === town)?.blurb}</p></div>
+          <label className="block text-sm text-white/70">Residents: <b className="font-mono text-white">{people}</b><input type="range" min={6} max={16} value={people} onChange={(e) => setPeople(Number(e.target.value))} className="mt-3 block w-40 accent-[#ff9a62]" /></label>
+        </div>
       </div>
       <div className="mt-6 flex flex-wrap items-center gap-4"><button onClick={start} className="inline-flex items-center gap-2 rounded-xl bg-white px-7 py-4 text-base font-semibold text-black"><Play size={17} fill="currentColor" /> Start simulation</button><p className="text-sm text-white/40">About 1 minute at 4× speed · no sign-in needed</p></div>
       <Link to="/app/lab" className="group mt-8 flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[.025] p-5 transition hover:border-ember-300/50"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-ember-300/15 text-ember-200"><FlaskConical size={18} /></span><span><span className="block font-medium">Experiment Lab <span className="ml-1 rounded-full bg-[#7ee0b0]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[#7ee0b0]">no sign-in</span></span><span className="mt-1 block text-sm leading-relaxed text-white/50">One run can be luck. Compare options across dozens of random towns and get a plain-language answer about what really changes the outcome.</span></span><ArrowRight size={16} className="ml-auto mt-1 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white" /></Link>
@@ -244,7 +264,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
     <Header back />
     <div className="mx-auto max-w-[1500px] px-4 py-5 md:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-2xl tracking-[-.03em] md:text-3xl">{replay?.name ?? cfg.name}</h1><p className="mt-1 max-w-3xl text-sm text-white/50">News: “{cfg.news.text}”</p></div>
+        <div><h1 className="text-2xl tracking-[-.03em] md:text-3xl">{replay?.name ?? cfg.name}</h1>{cfg.town && <p className="mt-1 font-mono text-[11px] uppercase tracking-[.16em] text-ember-200/70">{townName(cfg.town)}</p>}<p className="mt-1 max-w-3xl text-sm text-white/50">News: “{cfg.news.text}”</p></div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-lg border border-white/10 px-3 py-2 font-mono text-sm tabular-nums whitespace-nowrap">{dayClock(Math.max(0, s.tick - 1 + (s.tick === 0 ? 0 : 1)))}</span>
           <button onClick={() => setRunning((r) => !r)} disabled={done} className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-40">{done ? 'Finished' : running ? <><Pause size={15} /> Pause</> : <><Play size={15} fill="currentColor" /> {s.tick === 0 ? 'Start' : 'Resume'}</>}</button>

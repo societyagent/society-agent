@@ -93,9 +93,14 @@ export interface Agent {
   stubborn: number; lastWith: number; lastWithAt: number
 }
 export interface NewsCfg { text: string; stance: number; startTick: number; seedRoles: string[] }
+/** Optional character of the whole town: a shift added to every resident's traits. Absent or all-zero = the standard town, byte-for-byte. */
+export interface TownCfg { trust: number; social: number; bias: number }
+export const TOWN_LIMIT = 0.3
+export const ROLES = ['official', 'journalist', 'organizer', 'nurse', 'teacher', 'shopkeeper', 'retiree', 'barista', 'student'] as const
 export interface Cfg {
   name: string; question: string; template: string
   news: NewsCfg; population: number; axis: [string, string]; seed: number
+  town?: TownCfg
 }
 export interface State { tick: number; rng: number; agents: Agent[]; cfg: Cfg; newsStarted: boolean; talks: number }
 export interface Ev { tick: number; t: string; type: 'news' | 'say' | 'inform' | 'shift' | 'arrive' | 'intervene'; agent?: number; with?: number; place?: string; text: string; news?: boolean; stance?: string }
@@ -150,10 +155,12 @@ function point(p: Place, s: { rng: number }, id = 0): [number, number] {
 export function createState(cfg: Cfg): State {
   const s = { rng: cfg.seed >>> 0 } as { rng: number }
   const n = Math.max(6, Math.min(PERSONAS.length, cfg.population))
+  const shift = cfg.town && (cfg.town.trust || cfg.town.social || cfg.town.bias) ? cfg.town : null
   const agents: Agent[] = PERSONAS.slice(0, n).map((p, i) => {
+    const traits = shift ? { social: clamp(p.traits.social + shift.social, 0.05, 1), trust: clamp(p.traits.trust + shift.trust, 0.05, 0.95), bias: clamp(p.traits.bias + shift.bias, -1, 1) } : p.traits
     const home = `home${i % 8}`
     const [x, y] = point(placeById(home), s, i)
-    return { ...p, id: i, home, x, y, tx: x, ty: y, place: home, dest: home, path: [], goal: 'sleeping', informed: false, opinion: 0, heardAt: null, heardFrom: null, memory: [], line: null, lineAt: -99, stubborn: clamp(0.25 + (1 - p.traits.trust) * 0.5 + (p.age > 55 ? 0.15 : 0), 0, 0.9), lastWith: -1, lastWithAt: -99 }
+    return { ...p, traits, id: i, home, x, y, tx: x, ty: y, place: home, dest: home, path: [], goal: 'sleeping', informed: false, opinion: 0, heardAt: null, heardFrom: null, memory: [], line: null, lineAt: -99, stubborn: clamp(0.25 + (1 - traits.trust) * 0.5 + (p.age > 55 ? 0.15 : 0), 0, 0.9), lastWith: -1, lastWithAt: -99 }
   })
   return { tick: 0, rng: s.rng, agents, cfg, newsStarted: false, talks: 0 }
 }

@@ -1,5 +1,5 @@
-import { createState, intervene, stepWorld, type Cfg, type Intervention } from './world'
-import { TEMPLATES, buildCfg } from './templates'
+import { ROLES, TOWN_LIMIT, createState, intervene, stepWorld, type Cfg, type Intervention, type TownCfg } from './world'
+import { TEMPLATES, TOWN_PRESETS, buildCfg, townOf } from './templates'
 
 /**
  * Experiment Lab engine: run one scenario across many random towns (seeds) under several conditions, then compare.
@@ -8,9 +8,11 @@ import { TEMPLATES, buildCfg } from './templates'
  */
 
 export type CondKind = 'none' | 'announce' | 'whisper'
-export interface Condition { id: string; label: string; kind: CondKind; hour: number; agent: number; text: string; stance: number }
+export interface Condition { id: string; label: string; kind: CondKind; hour: number; agent: number; text: string; stance: number; town?: string }
 export type OutcomeId = 'final' | 'peak' | 'spread' | 'half'
-export interface Experiment { template: string; text: string; population: number; n: number; batchSeed: number; outcome: OutcomeId; conds: Condition[] }
+/** `custom` carries the author's own scenario (axis, who hears first); `town` is the baseline town; a condition's own `town` overrides it. */
+export interface CustomCfg { axis: [string, string]; seedRoles: string[]; stance: number }
+export interface Experiment { template: string; text: string; population: number; n: number; batchSeed: number; outcome: OutcomeId; conds: Condition[]; town?: string; custom?: CustomCfg }
 
 export const TICKS = 144
 export const MAX_RUNS = 600 // seeds x conditions: keeps a lab run to a few seconds
@@ -25,23 +27,23 @@ export const ivsOf = (c: Condition, population: number): { tick: number; iv: Int
 }
 
 /* ───────── running ───────── */
-export interface RunResult { seed: number; final: number; peak: number; spread: number; halfHours: number | null; talks: number; series: Float32Array }
+export interface RunResult { seed: number; final: number; peak: number; spread: number; halfHours: number | null; talks: number; series: Float32Array; informed: Float32Array }
 
 export function runOne(cfg: Cfg, ivs: { tick: number; iv: Intervention }[], ticks = TICKS): RunResult {
-  const st = createState(cfg), series = new Float32Array(ticks)
+  const st = createState(cfg), series = new Float32Array(ticks), informed = new Float32Array(ticks)
   let i = 0, peak = -1, half: number | null = null, last = { mean: 0, spread: 0, talks: 0 }
   for (let t = 0; t < ticks; t++) {
     while (i < ivs.length && ivs[i].tick <= st.tick) { intervene(st, ivs[i].iv); i++ }
     const m = stepWorld(st).metric
-    series[t] = m.mean; if (m.mean > peak) peak = m.mean
+    series[t] = m.mean; informed[t] = m.informed; if (m.mean > peak) peak = m.mean
     if (half === null && m.informed >= 0.5) half = Math.max(0, t - cfg.news.startTick) / 6
     last = m
   }
-  return { seed: cfg.seed, final: last.mean, peak, spread: last.spread, halfHours: half, talks: last.talks, series }
+  return { seed: cfg.seed, final: last.mean, peak, spread: last.spread, halfHours: half, talks: last.talks, series, informed }
 }
 
 export const seedsFor = (batchSeed: number, n: number) => Array.from({ length: n }, (_, i) => (Math.imul(i + 1, 2654435761) ^ batchSeed) >>> 0)
-export const cfgFor = (x: Experiment, seed: number): Cfg => buildCfg(x.template, { seed, text: x.text, population: x.population })
+export const cfgFor = (x: Experiment, seed: number, cond?: Condition): Cfg => buildCfg(x.template, { seed, text: x.text, population: x.population, town: townOf(cond?.town ?? x.town), ...(x.custom ?? {}) })
 
 export interface Batch { x: Experiment; seeds: number[]; results: RunResult[][] } // results[condition][seedIndex]
 
@@ -49,7 +51,7 @@ export async function runBatch(x: Experiment, onProgress?: (done: number, total:
   const seeds = seedsFor(x.batchSeed, x.n), results: RunResult[][] = x.conds.map(() => [])
   const total = seeds.length * x.conds.length; let done = 0
   for (let s = 0; s < seeds.length; s++) {
-    for (let c = 0; c < x.conds.length; c++) { results[c].push(runOne(cfgFor(x, seeds[s]), ivsOf(x.conds[c], x.population))); done++ }
+    for (let c = 0; c < x.conds.length; c++) { results[c].push(runOne(cfgFor(x, seeds[s], x.conds[c]), ivsOf(x.conds[c], x.population))); done++ }
     if (s % 3 === 2) { onProgress?.(done, total); await new Promise((r) => setTimeout(r, 0)); if (isCancelled?.()) return null }
   }
   onProgress?.(total, total)
@@ -99,9 +101,10 @@ export const valuesOf = (rs: RunResult[], o: OutcomeId) => rs.map((r) => OUTCOME
 export const fmt = (v: number, o: OutcomeId) => (Number.isFinite(v) ? (v > 0 && o !== 'half' && o !== 'spread' ? '+' : '') + v.toFixed(OUTCOMES[o].digits) : '—')
 
 /** Median / 10th / 90th percentile of the town's mean opinion at every tick. */
-export function bands(rs: RunResult[], ticks = TICKS) {
+export type ChartMetric = 'opinion' | 'informed'
+export function bands(rs: RunResult[], ticks = TICKS, metric: ChartMetric = 'opinion') {
   const median: number[] = [], lo: number[] = [], hi: number[] = []
-  for (let t = 0; t < ticks; t++) { const col = rs.map((r) => r.series[t]).sort((a, b) => a - b); median.push(quantile(col, 0.5)); lo.push(quantile(col, 0.1)); hi.push(quantile(col, 0.9)) }
+  for (let t = 0; t < ticks; t++) { const col = rs.map((r) => (metric === 'informed' ? r.informed[t] : r.series[t])).sort((a, b) => a - b); median.push(quantile(col, 0.5)); lo.push(quantile(col, 0.1)); hi.push(quantile(col, 0.9)) }
   return { median, lo, hi }
 }
 
@@ -114,19 +117,22 @@ export function pickRun(rs: RunResult[], which: 'low' | 'mid' | 'high') {
 /* ───────── plain-language verdict ───────── */
 export function verdict(label: string, base: string, p: Pair, o: OutcomeDef, axis: string[]): { headline: string; detail: string; tone: 'clear' | 'none' } {
   const dir = p.delta < 0 ? o.down(axis) : o.up(axis), amt = Math.abs(p.delta).toFixed(o.digits) + o.unit
-  const same = p.delta < 0 ? p.lower : p.higher
+  const same = p.delta < 0 ? p.lower : p.higher, opposite = p.delta < 0 ? p.higher : p.lower, tied = p.n - p.lower - p.higher
+  const split = [opposite ? `the other way in ${opposite}` : '', tied ? `no change in ${tied}` : ''].filter(Boolean).join(', ')
   if (!p.clear) return { tone: 'none', headline: `${label}: no clear difference from “${base}”.`, detail: `Average change ${p.delta >= 0 ? '+' : '−'}${amt} (95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)}). With ${p.n} towns the data cannot separate this from chance.` }
-  return { tone: 'clear', headline: `${label}: ${dir} than “${base}” by ${amt}.`, detail: `Same direction in ${same} of ${p.n} towns · 95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)} · ${p.size} effect.` }
+  return { tone: 'clear', headline: `${label}: ${dir} than “${base}” by ${amt}.`, detail: `Same direction in ${same} of ${p.n} towns${split ? ` (${split})` : ''} · 95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)} · ${p.size} effect.` }
 }
 
 /* ───────── defaults + shareable link ───────── */
 export const DEFAULTS: Record<string, { statement: { text: string; stance: number }; whisper: { agent: number; text: string; stance: number } }> = {
   water: { statement: { text: 'Water will be restored by 6pm. There is no danger.', stance: -0.6 }, whisper: { agent: 3, text: 'I checked. It is a small leak and will be fixed today.', stance: -0.6 } },
   rumor: { statement: { text: 'The clinic is not closing. There are no such plans.', stance: -0.7 }, whisper: { agent: 3, text: 'I work there. Nobody has said anything about closing.', stance: -0.7 } },
+  custom: { statement: { text: 'The plan is still being discussed. Nothing is decided yet.', stance: 0 }, whisper: { agent: 2, text: 'It is only an idea so far. Nothing has been decided.', stance: 0 } },
   school: { statement: { text: 'No decision has been made. Parents will be consulted first.', stance: 0 }, whisper: { agent: 2, text: 'It is only a proposal. Nothing is decided.', stance: 0 } },
 }
 
 export function defaultExperiment(template = 'water'): Experiment {
+  if (template === 'custom') return customExperiment()
   const d = DEFAULTS[template] ?? DEFAULTS.water, t = TEMPLATES.find((x) => x.id === template) ?? TEMPLATES[0]
   return {
     template: t.id, text: t.news.text, population: 12, n: 60, batchSeed: 20261021, outcome: 'final',
@@ -153,12 +159,16 @@ export function sanitizeExperiment(raw: unknown): Experiment | null {
     if (!['none', 'announce', 'whisper'].includes(String(q.kind))) return null
     const kind = q.kind as CondKind, text = str(q.text, 240)
     if (kind !== 'none' && !text) return null
-    conds.push({ id: `c${conds.length + 1}`, label: str(q.label, 40) || `Condition ${conds.length + 1}`, kind, hour: Math.round(num(q.hour, 8, 22, 12)), agent: Math.round(num(q.agent, 0, 15, 0)), text, stance: num(q.stance, -1, 1, 0) })
+    const tw = TOWN_PRESETS.some((p) => p.id === q.town) ? (q.town as string) : undefined
+    conds.push({ id: `c${conds.length + 1}`, label: str(q.label, 40) || `Condition ${conds.length + 1}`, kind, hour: Math.round(num(q.hour, 8, 22, 12)), agent: Math.round(num(q.agent, 0, 15, 0)), text, stance: num(q.stance, -1, 1, 0), ...(tw && tw !== 'default' ? { town: tw } : {}) })
   }
   if (conds.length < 2) return null
   const n = Math.round(num(r.n, 10, 200, 60))
   const outcome = (Object.keys(OUTCOMES) as OutcomeId[]).includes(r.outcome as OutcomeId) ? (r.outcome as OutcomeId) : 'final'
-  return { template: tpl.id, text: str(r.text, 240) || tpl.news.text, population: Math.round(num(r.population, 6, 16, 12)), n: Math.min(n, Math.floor(MAX_RUNS / conds.length)), batchSeed: Math.round(num(r.batchSeed, 0, 2 ** 31, 20261021)) >>> 0, outcome, conds }
+  const baseTown = TOWN_PRESETS.some((p) => p.id === r.town) && r.town !== 'default' ? (r.town as string) : undefined
+  let custom: CustomCfg | undefined
+  if (tpl.id === 'custom') { const c = (r.custom && typeof r.custom === 'object' ? r.custom : {}) as Record<string, unknown>, ax = Array.isArray(c.axis) ? c.axis : []; custom = { axis: [str(ax[0], 24) || tpl.axis[0], str(ax[1], 24) || tpl.axis[1]], seedRoles: (Array.isArray(c.seedRoles) ? c.seedRoles : []).map((v) => str(v, 20)).filter((v) => (ROLES as readonly string[]).includes(v)).slice(0, 4), stance: num(c.stance, -1, 1, 0.3) }; if (!custom.seedRoles.length) custom.seedRoles = [...tpl.news.seedRoles] }
+  return { template: tpl.id, ...(baseTown ? { town: baseTown } : {}), ...(custom ? { custom } : {}), text: str(r.text, 240) || tpl.news.text, population: Math.round(num(r.population, 6, 16, 12)), n: Math.min(n, Math.floor(MAX_RUNS / conds.length)), batchSeed: Math.round(num(r.batchSeed, 0, 2 ** 31, 20261021)) >>> 0, outcome, conds }
 }
 
 const b64 = {
@@ -177,3 +187,26 @@ export function toCsv(b: Batch): string {
   b.x.conds.forEach((c, ci) => b.results[ci].forEach((r) => rows.push([csvCell(c.label), r.seed, r.final.toFixed(4), r.peak.toFixed(4), r.spread.toFixed(4), r.halfHours === null ? '' : r.halfHours.toFixed(2), r.talks].join(','))))
   return rows.join('\n')
 }
+
+/** Ready-made "does the kind of town matter?" experiment. Same seeds, nobody intervenes: only the CHARACTER of the town changes.
+ *  Social density is what moves how fast news travels (measured: ~1.4 h in a tight-knit town vs ~4.5 h in an isolated one). */
+export function townComparison(template = 'water'): Experiment {
+  const base = defaultExperiment(template)
+  const c = (label: string, town?: string): Condition => ({ id: '', label, kind: 'none', hour: 12, agent: 0, text: '', stance: 0, ...(town ? { town } : {}) })
+  const conds = [c('Everyday town'), c('Tight-knit town', 'tight'), c('Isolated town', 'isolated')].map((x, i) => ({ ...x, id: `c${i + 1}` }))
+  return { ...base, conds, outcome: 'half' }
+}
+
+export function customExperiment(): Experiment {
+  const t = TEMPLATES.find((x) => x.id === 'custom')!, d = DEFAULTS.custom
+  return {
+    template: 'custom', text: t.news.text, population: 12, n: 60, batchSeed: 20261021, outcome: 'final', custom: { axis: [...t.axis] as [string, string], seedRoles: [...t.news.seedRoles], stance: t.news.stance },
+    conds: [
+      { id: 'c1', label: 'Do nothing', kind: 'none', hour: 12, agent: 0, text: '', stance: 0 },
+      { id: 'c2', label: 'Official statement', kind: 'announce', hour: 12, agent: 0, text: d.statement.text, stance: d.statement.stance },
+    ],
+  }
+}
+export const townLabel = (id?: string) => TOWN_PRESETS.find((p) => p.id === (id ?? 'default'))?.label ?? 'Everyday town'
+export type { TownCfg }
+export { TOWN_LIMIT }
