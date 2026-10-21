@@ -21,3 +21,4 @@ jobs:
       - run: npx tsx tests/security.ts "${{ inputs.url }}"
       - run: npx tsx tests/ui.ts "${{ inputs.url }}"
       - run: npx tsx tests/minds.ts "${{ inputs.url }}"
+      - run: npx tsx tests/lab-ui.ts "${{ inputs.url }}"

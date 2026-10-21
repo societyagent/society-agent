@@ -153,6 +153,15 @@ export function DarkLanding() {
         <p className="mt-5 max-w-2xl text-white/55">A water main breaks and the town starts to worry. Do you stay quiet, make an official statement, or quietly reassure a single resident? Same town, same seed, same minute — only your move changes. Across 60 different seeds, a statement calmed the town more than silence every time, and a lone whisper helped less than a statement in most runs.</p></Fade>
       <Fade d={0.1} className="mt-10"><Comparison /></Fade>
     </div></section>
+      <div className="mx-auto mt-2 max-w-6xl px-5 pb-16 md:px-8">
+        <div className="flex flex-col items-start gap-5 rounded-3xl border border-[#ff9a62]/25 bg-[#ff9a62]/[.05] p-6 md:flex-row md:items-center md:justify-between md:p-8">
+          <div className="max-w-2xl"><p className="font-mono text-[11px] uppercase tracking-[.2em] text-[#ffb185]">Experiment Lab · no sign-in</p>
+            <p className="mt-2 font-display text-3xl leading-tight md:text-4xl">That was one town. Run it in sixty.</p>
+            <p className="mt-2 text-white/60">The lab replays the same morning in dozens of random towns for every option, always pairing the same town with and without your move, and tells you in plain language whether the difference is real — with a link anyone can open to get exactly your numbers.</p></div>
+          <Link to="/app/lab" className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#ff9a62] px-7 py-4 text-[15px] font-semibold text-[#1a0f08] transition hover:bg-[#ffb185]">Open the Experiment Lab <ArrowRight size={17} /></Link>
+        </div>
+      </div>
+
 
     <section id="people" className="border-t border-white/[.07] bg-[#0a0908] px-5 py-24 md:px-8"><div className="mx-auto max-w-6xl">
       <Fade><Eyebrow>The people</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">Nobody is an average. <em className="text-white/45">Everyone has a reason.</em></h2>

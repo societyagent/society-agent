@@ -15,8 +15,9 @@ try { localStorage.removeItem('society-agent-session-v1') } catch { /* storage b
 
 export async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   const res = await fetch(path, { method: opts.method ?? 'GET', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) })
-  const data = (await res.json().catch(() => ({}))) as { error?: string }
-  if (!res.ok) { const e = new Error(data.error || ERR) as Error & { status?: number }; e.status = res.status; throw e }
+  const isJson = (res.headers.get('content-type') ?? '').includes('application/json')
+  const data = (isJson ? await res.json().catch(() => null) : null) as ({ error?: string } & Record<string, unknown>) | null
+  if (!res.ok || data === null) { const e = new Error(data?.error || ERR) as Error & { status?: number }; e.status = res.status; throw e }
   return data as T
 }
 
@@ -35,7 +36,7 @@ function boot() {
   if (started) return; started = true
   // The cookie is the source of truth: ask the server who we are instead of trusting local storage.
   api<{ address: string }>('/api/auth/me')
-    .then((r) => { const hint = loadSession(); if (!hint || hint.address !== r.address) { const s = { address: r.address, expiresAt: Date.now() + 6 * 864e5 }; persist(s); set({ session: s }) } })
+    .then((r) => { if (typeof r?.address !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(r.address)) return; const hint = loadSession(); if (!hint || hint.address !== r.address) { const s = { address: r.address, expiresAt: Date.now() + 6 * 864e5 }; persist(s); set({ session: s }) } })
     .catch((e: { status?: number }) => { if (e.status === 401 && state.session) { persist(null); set({ session: null }) } })
   injected()?.on?.('accountsChanged', () => { void signOut() })
 }
@@ -61,6 +62,7 @@ export async function signIn() {
     const ch = await api<{ id: string; message: string }>('/api/auth/challenge', { method: 'POST', body: { address, chainId } })
     const signature = (await provider.request({ method: 'personal_sign', params: [ch.message, address] })) as string
     const s = await api<Session>('/api/auth/verify', { method: 'POST', body: { id: ch.id, address, signature } })
+    if (typeof s?.address !== 'string' || typeof s?.expiresAt !== 'number') throw new Error('Sign-in failed. Please try again.')
     const hint = { address: s.address, expiresAt: s.expiresAt }
     persist(hint); set({ session: hint })
   } catch (e) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { BrainCircuit, ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
+import { ArrowRight, BrainCircuit, FlaskConical, ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { api, useAuth } from '@/lib/auth'
 import { MIND_ACTIONS, PLACES, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
@@ -8,7 +8,7 @@ import { TEMPLATES, buildCfg } from '@/engine/templates'
 import { useSim, useSimClock } from '@/engine/useSim'
 
 type Speed = 1 | 4 | 12
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
+const short = (a: string | undefined) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '')
 const stanceLabel = (v: number) => (v > 0.5 ? 'alarmed' : v > 0.15 ? 'worried' : v > -0.15 ? 'neutral' : 'skeptical')
 const download = (name: string, mime: string, text: string) => { const u = URL.createObjectURL(new Blob([text], { type: mime })); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u) }
 
@@ -81,6 +81,7 @@ export function Dashboard() {
           </div></details>
       </div>
       <div className="mt-6 flex flex-wrap items-center gap-4"><button onClick={start} className="inline-flex items-center gap-2 rounded-xl bg-white px-7 py-4 text-base font-semibold text-black"><Play size={17} fill="currentColor" /> Start simulation</button><p className="text-sm text-white/40">About 1 minute at 4× speed · no sign-in needed</p></div>
+      <Link to="/app/lab" className="group mt-8 flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[.025] p-5 transition hover:border-ember-300/50"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-ember-300/15 text-ember-200"><FlaskConical size={18} /></span><span><span className="block font-medium">Experiment Lab <span className="ml-1 rounded-full bg-[#7ee0b0]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[#7ee0b0]">no sign-in</span></span><span className="mt-1 block text-sm leading-relaxed text-white/50">One run can be luck. Compare options across dozens of random towns and get a plain-language answer about what really changes the outcome.</span></span><ArrowRight size={16} className="ml-auto mt-1 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white" /></Link>
       {auth.session && <p className="mt-4 text-sm text-white/40">Signed in as {short(auth.session.address)}. <Link to="/app/runs" className="text-ember-200 underline-offset-4 hover:underline">View saved runs</Link></p>}
     </div>
   </main>
@@ -117,12 +118,14 @@ function narrate(st: State, events: Ev[], done: boolean, started: boolean, total
 
 /* ───────── Simulation ───────── */
 export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: number; iv: Intervention }[]; ticks: number; id: string; shared: boolean; isOwner: boolean; name: string } }) {
-  const loc = (window.history.state?.usr ?? {}) as { cfg?: Cfg }
+  const loc = (window.history.state?.usr ?? {}) as { cfg?: Cfg; ivs?: { tick: number; iv: Intervention }[] }
   // Created once: a fallback scenario must keep the same random seed for the life of the page (so Save stores what was simulated).
   const [cfg] = useState<Cfg>(() => replay?.cfg ?? loc.cfg ?? buildCfg('water'))
   const nav = useNavigate()
   const auth = useAuth()
-  const { sim, snap } = useSim(cfg, replay?.ivs)
+  // Watching a single town from the Experiment Lab replays that condition's recorded moves, so what you watch is what was measured.
+  const [seedIvs] = useState(() => replay?.ivs ?? loc.ivs)
+  const { sim, snap } = useSim(cfg, seedIvs)
   const { metrics, events, ivs } = snap
   const [running, setRunning] = useState(!replay)
   const [speed, setSpeed] = useState<Speed>(4)
