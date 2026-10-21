@@ -1,4 +1,4 @@
-import type { Cfg, TownCfg } from './world'
+import type { Cfg, LayoutId, ResidentTweak, TownCfg } from './world'
 
 export interface Template { id: string; title: string; blurb: string; axis: [string, string]; news: { text: string; stance: number; seedRoles: string[] }; question: string }
 
@@ -44,7 +44,7 @@ export const TEMPLATES: Template[] = [
   },
 ]
 
-export function buildCfg(templateId: string, over: Partial<{ name: string; question: string; text: string; stance: number; population: number; seed: number; axis: [string, string]; seedRoles: string[]; town: TownCfg }> = {}): Cfg {
+export function buildCfg(templateId: string, over: Partial<{ name: string; question: string; text: string; stance: number; population: number; seed: number; axis: [string, string]; seedRoles: string[]; town: TownCfg; layout: LayoutId; residents: Record<string, ResidentTweak> }> = {}): Cfg {
   const t = TEMPLATES.find((x) => x.id === templateId) ?? TEMPLATES[0]
   return {
     name: (over.name ?? t.title).slice(0, 80),
@@ -55,5 +55,7 @@ export function buildCfg(templateId: string, over: Partial<{ name: string; quest
     seed: (over.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
     news: { text: (over.text ?? t.news.text).slice(0, 240), stance: Math.max(-1, Math.min(1, over.stance ?? t.news.stance)), startTick: 2, seedRoles: over.seedRoles?.length ? over.seedRoles.slice(0, 4) : t.news.seedRoles },
     ...(over.town && (over.town.trust || over.town.social || over.town.bias) ? { town: over.town } : {}),
+    ...(over.layout && over.layout !== 'classic' ? { layout: over.layout } : {}),
+    ...(over.residents && Object.keys(over.residents).length ? { residents: over.residents } : {}),
   }
 }

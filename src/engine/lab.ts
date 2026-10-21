@@ -1,4 +1,4 @@
-import { ROLES, TOWN_LIMIT, createState, intervene, stepWorld, type Cfg, type Intervention, type TownCfg } from './world'
+import { LAYOUT_IDS, RESIDENT_LIMIT, ROLES, TOWN_LIMIT, createState, personaOf, intervene, stepWorld, type Cfg, type Intervention, type LayoutId, type ResidentTweak, type TownCfg } from './world'
 import { TEMPLATES, TOWN_PRESETS, buildCfg, townOf } from './templates'
 
 /**
@@ -8,13 +8,26 @@ import { TEMPLATES, TOWN_PRESETS, buildCfg, townOf } from './templates'
  */
 
 export type CondKind = 'none' | 'announce' | 'whisper'
-export interface Condition { id: string; label: string; kind: CondKind; hour: number; agent: number; text: string; stance: number; town?: string }
+export interface Condition { id: string; label: string; kind: CondKind; hour: number; agent: number; text: string; stance: number; town?: string; layout?: LayoutId; residents?: Record<string, ResidentTweak> }
 export type OutcomeId = 'final' | 'peak' | 'spread' | 'half'
 /** `custom` carries the author's own scenario (axis, who hears first); `town` is the baseline town; a condition's own `town` overrides it. */
 export interface CustomCfg { axis: [string, string]; seedRoles: string[]; stance: number }
-export interface Experiment { template: string; text: string; population: number; n: number; batchSeed: number; outcome: OutcomeId; conds: Condition[]; town?: string; custom?: CustomCfg }
+export interface Experiment { template: string; text: string; population: number; n: number; batchSeed: number; outcome: OutcomeId; conds: Condition[]; town?: string; layout?: LayoutId; residents?: Record<string, ResidentTweak>; custom?: CustomCfg }
 
 export const TICKS = 144
+const tweakNum = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.max(-RESIDENT_LIMIT, Math.min(RESIDENT_LIMIT, v)) * 100) / 100 : 0)
+/** Keep only well-formed tweaks for existing residents (0..population-1); drop zeros. */
+export function cleanResidents(raw: unknown, population: number): Record<string, ResidentTweak> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const out: Record<string, ResidentTweak> = {}
+  for (const k of Object.keys(raw as object).slice(0, 16)) {
+    const id = Number(k); if (!Number.isInteger(id) || id < 0 || id >= population) continue
+    const w = (raw as Record<string, Record<string, unknown>>)[k] ?? {}, t = { trust: tweakNum(w.trust), social: tweakNum(w.social), bias: tweakNum(w.bias) }
+    if (t.trust || t.social || t.bias) out[String(id)] = { ...(t.trust ? { trust: t.trust } : {}), ...(t.social ? { social: t.social } : {}), ...(t.bias ? { bias: t.bias } : {}) }
+  }
+  return Object.keys(out).length ? out : undefined
+}
+const cleanLayout = (v: unknown): LayoutId | undefined => ((LAYOUT_IDS as readonly string[]).includes(String(v)) && v !== 'classic' ? (v as LayoutId) : undefined)
 export const MAX_RUNS = 600 // seeds x conditions: keeps a lab run to a few seconds
 export const hourToTick = (hour: number) => Math.max(0, Math.round((hour - 7) * 6)) // the day starts at 07:00, one tick = 10 minutes
 export const hourLabel = (hour: number) => `${String(hour % 24).padStart(2, '0')}:00`
@@ -43,7 +56,12 @@ export function runOne(cfg: Cfg, ivs: { tick: number; iv: Intervention }[], tick
 }
 
 export const seedsFor = (batchSeed: number, n: number) => Array.from({ length: n }, (_, i) => (Math.imul(i + 1, 2654435761) ^ batchSeed) >>> 0)
-export const cfgFor = (x: Experiment, seed: number, cond?: Condition): Cfg => buildCfg(x.template, { seed, text: x.text, population: x.population, town: townOf(cond?.town ?? x.town), ...(x.custom ?? {}) })
+/** A condition's own settings win; anything it does not set falls back to the experiment's baseline. Per-resident tweaks are merged key by key. */
+export const cfgFor = (x: Experiment, seed: number, cond?: Condition): Cfg => {
+  const residents: Record<string, ResidentTweak> = { ...(x.residents ?? {}) }
+  for (const [k, v] of Object.entries(cond?.residents ?? {})) residents[k] = { ...(residents[k] ?? {}), ...v }
+  return buildCfg(x.template, { seed, text: x.text, population: x.population, town: townOf(cond?.town ?? x.town), layout: cond?.layout ?? x.layout, residents, ...(x.custom ?? {}) })
+}
 
 export interface Batch { x: Experiment; seeds: number[]; results: RunResult[][] } // results[condition][seedIndex]
 
@@ -152,6 +170,7 @@ export function sanitizeExperiment(raw: unknown): Experiment | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   const tpl = TEMPLATES.find((t) => t.id === r.template); if (!tpl) return null
+  const population = Math.round(num(r.population, 6, 16, 12))
   const conds: Condition[] = []
   for (const c of (Array.isArray(r.conds) ? r.conds : []).slice(0, 4)) {
     if (!c || typeof c !== 'object') return null
@@ -160,7 +179,7 @@ export function sanitizeExperiment(raw: unknown): Experiment | null {
     const kind = q.kind as CondKind, text = str(q.text, 240)
     if (kind !== 'none' && !text) return null
     const tw = TOWN_PRESETS.some((p) => p.id === q.town) ? (q.town as string) : undefined
-    conds.push({ id: `c${conds.length + 1}`, label: str(q.label, 40) || `Condition ${conds.length + 1}`, kind, hour: Math.round(num(q.hour, 8, 22, 12)), agent: Math.round(num(q.agent, 0, 15, 0)), text, stance: num(q.stance, -1, 1, 0), ...(tw && tw !== 'default' ? { town: tw } : {}) })
+    conds.push({ id: `c${conds.length + 1}`, label: str(q.label, 40) || `Condition ${conds.length + 1}`, kind, hour: Math.round(num(q.hour, 8, 22, 12)), agent: Math.round(num(q.agent, 0, 15, 0)), text, stance: num(q.stance, -1, 1, 0), ...(tw && tw !== 'default' ? { town: tw } : {}), ...(cleanLayout(q.layout) ? { layout: cleanLayout(q.layout) } : {}), ...(cleanResidents(q.residents, population) ? { residents: cleanResidents(q.residents, population) } : {}) })
   }
   if (conds.length < 2) return null
   const n = Math.round(num(r.n, 10, 200, 60))
@@ -168,7 +187,7 @@ export function sanitizeExperiment(raw: unknown): Experiment | null {
   const baseTown = TOWN_PRESETS.some((p) => p.id === r.town) && r.town !== 'default' ? (r.town as string) : undefined
   let custom: CustomCfg | undefined
   if (tpl.id === 'custom') { const c = (r.custom && typeof r.custom === 'object' ? r.custom : {}) as Record<string, unknown>, ax = Array.isArray(c.axis) ? c.axis : []; custom = { axis: [str(ax[0], 24) || tpl.axis[0], str(ax[1], 24) || tpl.axis[1]], seedRoles: (Array.isArray(c.seedRoles) ? c.seedRoles : []).map((v) => str(v, 20)).filter((v) => (ROLES as readonly string[]).includes(v)).slice(0, 4), stance: num(c.stance, -1, 1, 0.3) }; if (!custom.seedRoles.length) custom.seedRoles = [...tpl.news.seedRoles] }
-  return { template: tpl.id, ...(baseTown ? { town: baseTown } : {}), ...(custom ? { custom } : {}), text: str(r.text, 240) || tpl.news.text, population: Math.round(num(r.population, 6, 16, 12)), n: Math.min(n, Math.floor(MAX_RUNS / conds.length)), batchSeed: Math.round(num(r.batchSeed, 0, 2 ** 31, 20261021)) >>> 0, outcome, conds }
+  return { template: tpl.id, ...(baseTown ? { town: baseTown } : {}), ...(cleanLayout(r.layout) ? { layout: cleanLayout(r.layout) } : {}), ...(cleanResidents(r.residents, population) ? { residents: cleanResidents(r.residents, population) } : {}), ...(custom ? { custom } : {}), text: str(r.text, 240) || tpl.news.text, population, n: Math.min(n, Math.floor(MAX_RUNS / conds.length)), batchSeed: Math.round(num(r.batchSeed, 0, 2 ** 31, 20261021)) >>> 0, outcome, conds }
 }
 
 const b64 = {
@@ -210,3 +229,20 @@ export function customExperiment(): Experiment {
 export const townLabel = (id?: string) => TOWN_PRESETS.find((p) => p.id === (id ?? 'default'))?.label ?? 'Everyday town'
 export type { TownCfg }
 export { TOWN_LIMIT }
+
+/** Same news, nobody steps in: three street plans. Only the SHAPE of the town changes. */
+export function layoutComparison(template = 'water'): Experiment {
+  const base = defaultExperiment(template)
+  const c = (label: string, layout?: LayoutId): Condition => ({ id: '', label, kind: 'none', hour: 12, agent: 0, text: '', stance: 0, ...(layout ? { layout } : {}) })
+  return { ...base, outcome: 'half', conds: [c('Classic town'), c('Village square', 'village'), c('Long main street', 'mainstreet')].map((x, i) => ({ ...x, id: `c${i + 1}` })) }
+}
+
+/** What if one particular person were different? Same town, same seeds; option 2 changes only resident `who`. */
+export function residentComparison(template = 'water', who = 0, tweak: ResidentTweak = { social: -0.5 }): Experiment {
+  const base = defaultExperiment(template), name = personaOf(who)?.name.split(' ')[0] ?? `Resident ${who + 1}`
+  const label = Object.entries(tweak).map(([k, v]) => `${(v as number) > 0 ? 'more' : 'less'} ${k}`).join(', ')
+  return { ...base, outcome: 'half', conds: [
+    { id: 'c1', label: 'As they are', kind: 'none', hour: 12, agent: 0, text: '', stance: 0 },
+    { id: 'c2', label: `${name}: ${label}`, kind: 'none', hour: 12, agent: 0, text: '', stance: 0, residents: { [String(who)]: tweak } },
+  ] }
+}

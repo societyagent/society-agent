@@ -24,3 +24,5 @@ jobs:
       - run: npx tsx tests/lab-ui.ts "${{ inputs.url }}"
       - run: npx tsx tests/custom-ui.ts "${{ inputs.url }}"
       - run: npx tsx tests/custom-api.ts "${{ inputs.url }}"
+      - run: npx tsx tests/layouts-ui.ts "${{ inputs.url }}"
+      - run: npx tsx tests/layouts-api.ts "${{ inputs.url }}"

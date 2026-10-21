@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { GRID_H, GRID_W, PLACES, costGrid, isRoad, type Agent, type Place, type PlaceKind } from '@/engine/world'
+import { GRID_H, GRID_W, layoutOf, type Agent, type Layout, type Place, type PlaceKind } from '@/engine/world'
 
 /**
  * 2D town renderer. Art: Kenney "RPG Urban Pack" (CC0, kenney.nl) — 16px tiles from /town/tiles.png.
@@ -24,6 +24,7 @@ export interface TownProps {
   mode: 'opinion' | 'informed'
   onSelect: (id: number | null) => void
   tick: number
+  layout?: string
 }
 
 function opinionColor(a: Agent, mode: 'opinion' | 'informed'): string {
@@ -39,10 +40,10 @@ function drawTile(ctx: CanvasRenderingContext2D, img: HTMLImageElement, idx: num
   ctx.drawImage(img, (idx % COLS) * T, Math.floor(idx / COLS) * T, T, T, Math.round(dx), Math.round(dy), Math.ceil(size), Math.ceil(size))
 }
 
-function buildStatic(img: HTMLImageElement, cell: number): HTMLCanvasElement {
+function buildStatic(img: HTMLImageElement, cell: number, L: Layout): HTMLCanvasElement {
   const c = document.createElement('canvas'); c.width = Math.ceil(GRID_W * cell); c.height = Math.ceil(GRID_H * cell)
   const ctx = c.getContext('2d')!; ctx.imageSmoothingEnabled = false
-  const g = costGrid()
+  const g = L.cost, isRoad = L.isRoad, PLACES = L.places
   const park = PLACES.find((p) => p.kind === 'park')!
   const inRect = (p: Place, x: number, y: number) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h
   // ground
@@ -55,8 +56,9 @@ function buildStatic(img: HTMLImageElement, cell: number): HTMLCanvasElement {
   ctx.fillStyle = 'rgba(226,229,245,0.85)'
   const dash = (x: number, y: number, w: number, h: number) => ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)))
   const lw = Math.max(1, cell * 0.12)
-  for (const ry of [9, 15]) for (let x = 0; x < GRID_W; x++) { if (x % 2 === 0 && !(x >= 17 && x <= 18) && !(x >= 29 && x <= 30)) dash((x + 0.15) * cell, (ry + 1) * cell - lw / 2, cell * 0.7, lw) }
-  for (const rx of [17, 29]) for (let y = 0; y < GRID_H; y++) if (y % 2 === 0 && !(y >= 9 && y <= 10) && !(y >= 15 && y <= 16)) dash((rx + 1) * cell - lw / 2, (y + 0.15) * cell, lw, cell * 0.7)
+  const onV = (x: number) => L.vRoads.some((c) => x === c || x === c + 1), onH = (y: number) => L.hRoads.some((r) => y === r || y === r + 1)
+  for (const ry of L.hRoads) for (let x = 0; x < GRID_W; x++) { if (x % 2 === 0 && !onV(x)) dash((x + 0.15) * cell, (ry + 1) * cell - lw / 2, cell * 0.7, lw) }
+  for (const rx of L.vRoads) for (let y = 0; y < GRID_H; y++) if (y % 2 === 0 && !onH(y)) dash((rx + 1) * cell - lw / 2, (y + 0.15) * cell, lw, cell * 0.7)
   // park: bushes on the rim, trees inside, a little path
   for (let y = park.y; y < park.y + park.h; y++) for (let x = park.x; x < park.x + park.w; x++) {
     const edge = x === park.x || y === park.y || x === park.x + park.w - 1 || y === park.y + park.h - 1
@@ -93,17 +95,17 @@ function buildStatic(img: HTMLImageElement, cell: number): HTMLCanvasElement {
   return c
 }
 
-export function Town({ agents, selected, mode, onSelect, tick }: TownProps) {
+export function Town({ agents, selected, mode, onSelect, tick, layout }: TownProps) {
   const ref = useRef<HTMLCanvasElement>(null)
   const anim = useRef<{ pos: Map<number, { x: number; y: number; face: number; step: number }>; raf: number; last: number }>({ pos: new Map(), raf: 0, last: 0 })
-  const live = useRef({ agents, selected, mode, tick })
-  useEffect(() => { live.current = { agents, selected, mode, tick } })
+  const live = useRef({ agents, selected, mode, tick, layout })
+  useEffect(() => { live.current = { agents, selected, mode, tick, layout } })
 
   useEffect(() => {
     const A = anim.current
     const cv = ref.current!
     const ctx = cv.getContext('2d')!
-    const img = new Image(); let ready = false; let stat: HTMLCanvasElement | null = null; let statCell = 0
+    const img = new Image(); let ready = false; let stat: HTMLCanvasElement | null = null; let statCell = 0; let statLayout = ''
     img.onload = () => { ready = true }; img.src = '/town/tiles.png'
     const dpr = Math.min(2, window.devicePixelRatio || 1)
     const resize = () => {
@@ -115,12 +117,13 @@ export function Town({ agents, selected, mode, onSelect, tick }: TownProps) {
     const ro = new ResizeObserver(resize); ro.observe(cv)
 
     const draw = (now: number) => {
-      const { agents, selected, mode, tick } = live.current
+      const { agents, selected, mode, tick, layout } = live.current
+      const L = layoutOf(layout)
       const cell = cv.width / GRID_W
       const dt = Math.min(0.1, (now - (A.last || now)) / 1000); A.last = now
       ctx.imageSmoothingEnabled = false
       if (!ready) { ctx.fillStyle = '#3ec7a3'; ctx.fillRect(0, 0, cv.width, cv.height); A.raf = requestAnimationFrame(draw); return }
-      if (!stat || statCell !== cell) { stat = buildStatic(img, cell); statCell = cell }
+      if (!stat || statCell !== cell || statLayout !== L.id) { stat = buildStatic(img, cell, L); statCell = cell; statLayout = L.id }
       ctx.drawImage(stat, 0, 0)
 
       // gather residents; fan out co-located ones so nobody hides behind another

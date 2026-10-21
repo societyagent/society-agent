@@ -1,5 +1,5 @@
 import type { Cfg, Intervention } from '../src/engine/world'
-import { MIND_ACTIONS, ROLES, TOWN_LIMIT, createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
+import { LAYOUT_IDS, MIND_ACTIONS, RESIDENT_LIMIT, ROLES, TOWN_LIMIT, createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
 
 export interface Env { DB: D1Database; HEALTH_TOKEN?: string; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string }
 export type Ctx = { request: Request; env: Env; params: Record<string, string | string[]> }
@@ -90,6 +90,14 @@ export function sanitizeCfg(input: unknown): Cfg | null {
   const town = obj(raw.town), r2 = (v: unknown) => Math.round(num(v, -TOWN_LIMIT, TOWN_LIMIT, 0) * 100) / 100
   const t = { trust: r2(town.trust), social: r2(town.social), bias: r2(town.bias) }
   if (t.trust || t.social || t.bias) cfg.town = t
+  if (raw.layout !== undefined && raw.layout !== 'classic') { if ((LAYOUT_IDS as readonly string[]).includes(String(raw.layout))) cfg.layout = raw.layout as Cfg['layout'] }
+  const rs = obj(raw.residents), tweaks: NonNullable<Cfg['residents']> = {}, r3 = (v: unknown) => Math.round(num(v, -RESIDENT_LIMIT, RESIDENT_LIMIT, 0) * 100) / 100
+  for (const k of Object.keys(rs).slice(0, 16)) {
+    const id = Number(k); if (!Number.isInteger(id) || id < 0 || id >= cfg.population) continue
+    const w = obj(rs[k]), tw = { trust: r3(w.trust), social: r3(w.social), bias: r3(w.bias) }
+    if (tw.trust || tw.social || tw.bias) tweaks[String(id)] = { ...(tw.trust ? { trust: tw.trust } : {}), ...(tw.social ? { social: tw.social } : {}), ...(tw.bias ? { bias: tw.bias } : {}) }
+  }
+  if (Object.keys(tweaks).length) cfg.residents = tweaks
   return cfg.news.text ? cfg : null
 }
 

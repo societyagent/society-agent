@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { ArrowRight, BrainCircuit, FlaskConical, ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { api, useAuth } from '@/lib/auth'
-import { MIND_ACTIONS, PLACES, ROLES, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
+import { LAYOUT_META, MIND_ACTIONS, RESIDENT_LIMIT, ROLES, layoutOf, personaOf, placeName, type LayoutId, type ResidentTweak, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
 import { TEMPLATES, TOWN_PRESETS, buildCfg, townName, townOf } from '@/engine/templates'
 import { useSim, useSimClock } from '@/engine/useSim'
 
@@ -61,6 +61,9 @@ export function Dashboard() {
   const [name, setName] = useState('')
   const [text, setText] = useState('')
   const [town, setTown] = useState('default')
+  const [layout, setLayout] = useState<LayoutId>('classic')
+  const [who, setWho] = useState(-1)
+  const [tweak, setTweak] = useState<ResidentTweak>({})
   const [people, setPeople] = useState(12)
   const [axisA, setAxisA] = useState('Disagree'), [axisB, setAxisB] = useState('Agree')
   const [lean, setLean] = useState(0.3)
@@ -68,7 +71,7 @@ export function Dashboard() {
   const t = TEMPLATES.find((x) => x.id === pick)!
   const custom = pick === 'custom'
   const start = () => nav('/app/sim', { state: { cfg: buildCfg(pick, {
-    name: name.trim() || undefined, text: text.trim() || undefined, population: people, town: townOf(town),
+    name: name.trim() || undefined, text: text.trim() || undefined, population: people, town: townOf(town), layout, residents: who >= 0 && who < people && Object.values(tweak).some(Boolean) ? { [String(who)]: tweak } : undefined,
     ...(custom ? { axis: [axisA.trim() || 'Disagree', axisB.trim() || 'Agree'] as [string, string], stance: lean, seedRoles: first } : {}),
   }) } })
   return <main className="min-h-screen bg-[#0c0b0a] text-white">
@@ -99,6 +102,13 @@ export function Dashboard() {
           <div><p className="text-sm text-white/70">What kind of town is it?</p><div className="mt-2 flex flex-wrap gap-2">{TOWN_PRESETS.map((p) => <button key={p.id} type="button" aria-pressed={town === p.id} title={p.blurb} onClick={() => setTown(p.id)} className={`rounded-full border px-3 py-1.5 text-sm ${town === p.id ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 text-white/55 hover:text-white'}`}>{p.label.replace(' town', '')}</button>)}</div><p className="mt-2 text-xs text-white/40">{TOWN_PRESETS.find((p) => p.id === town)?.blurb}</p></div>
           <label className="block text-sm text-white/70">Residents: <b className="font-mono text-white">{people}</b><input type="range" min={6} max={16} value={people} onChange={(e) => setPeople(Number(e.target.value))} className="mt-3 block w-40 accent-[#ff9a62]" /></label>
         </div>
+        <div className="mt-5"><p className="text-sm text-white/70">What does the town look like?</p><div className="mt-2 flex flex-wrap gap-2">{LAYOUT_META.map((m) => <button key={m.id} type="button" aria-pressed={layout === m.id} title={m.blurb} onClick={() => setLayout(m.id)} className={`rounded-full border px-3 py-1.5 text-sm ${layout === m.id ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 text-white/55 hover:text-white'}`}>{m.name}</button>)}</div><p className="mt-2 text-xs text-white/40">{layoutOf(layout).blurb}</p></div>
+        <details className="group mt-4"><summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm text-ember-200 hover:underline"><ChevronDown size={15} className="transition group-open:rotate-180" /> Change one resident (optional)</summary>
+          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-4">
+            <label className="block text-sm text-white/70">Who<select value={who} onChange={(e) => { setWho(Number(e.target.value)); setTweak({}) }} className="mt-2 w-full rounded-xl border border-white/10 bg-[#17130f] px-3 py-2.5 text-sm text-white outline-none sm:w-80"><option value={-1}>Nobody — everyone as they are</option>{Array.from({ length: people }, (_, i) => <option key={i} value={i}>{personaOf(i)?.name} ({personaOf(i)?.role})</option>)}</select></label>
+            {who >= 0 && <div className="mt-4 grid gap-4 sm:grid-cols-3">{([['social', 'Sociability', 'keeps to themselves', 'talks to everyone'], ['trust', 'Trust in others', 'doubts everything', 'believes easily'], ['bias', 'Leaning', 'toward the first side', 'toward the second side']] as const).map(([k, label, lo, hi]) => { const v = tweak[k] ?? 0; return <label key={k} className="block text-sm text-white/70">{label}: <b className="font-mono font-normal text-white">{v > 0 ? '+' : ''}{v.toFixed(1)}</b><input type="range" min={-RESIDENT_LIMIT} max={RESIDENT_LIMIT} step={0.1} value={v} onChange={(e) => setTweak((o) => ({ ...o, [k]: Math.round(Number(e.target.value) * 10) / 10 }))} className="mt-2 w-full accent-[#ff9a62]" /><span className="mt-0.5 flex justify-between text-[10px] text-white/30"><span>{lo}</span><span>{hi}</span></span></label> })}</div>}
+            {who >= 0 && <p className="mt-3 text-xs text-white/40">One person can change how the town behaves, but not always. To find out whether it matters, compare it in the Experiment Lab.</p>}
+          </div></details>
       </div>
       <div className="mt-6 flex flex-wrap items-center gap-4"><button onClick={start} className="inline-flex items-center gap-2 rounded-xl bg-white px-7 py-4 text-base font-semibold text-black"><Play size={17} fill="currentColor" /> Start simulation</button><p className="text-sm text-white/40">About 1 minute at 4× speed · no sign-in needed</p></div>
       <Link to="/app/lab" className="group mt-8 flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[.025] p-5 transition hover:border-ember-300/50"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-ember-300/15 text-ember-200"><FlaskConical size={18} /></span><span><span className="block font-medium">Experiment Lab <span className="ml-1 rounded-full bg-[#7ee0b0]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[#7ee0b0]">no sign-in</span></span><span className="mt-1 block text-sm leading-relaxed text-white/50">One run can be luck. Compare options across dozens of random towns and get a plain-language answer about what really changes the outcome.</span></span><ArrowRight size={16} className="ml-auto mt-1 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white" /></Link>
@@ -130,7 +140,7 @@ function narrate(st: State, events: Ev[], done: boolean, started: boolean, total
   if (!heard.length) return 'Quiet morning. Nobody has heard the news yet.'
   const mood = heard.reduce((n, a) => n + a.opinion, 0) / heard.length
   const talk = [...events].reverse().find((e) => e.type === 'say')
-  const where = talk?.place ? PLACES.find((p) => p.id === talk.place)?.name : ''
+  const where = talk?.place ? placeName(st.cfg.layout, talk.place) : ''
   const base = `${heard.length} of ${total} residents have heard the news${heard.length === total ? '' : `, ${total - heard.length} still don’t know`}. On average they feel ${stanceLabel(mood)}.`
   if (done) return `The day is over. ${base} Scroll down for what happened.`
   return talk ? `${base} Latest: ${talk.text.split(': ')[0]}${where ? ` at ${where}` : ''}.` : base
@@ -185,7 +195,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
       voiceBusy.current = true; voiceCalls.current++
       pending.forEach((e) => voiced.current.add(evKey(e)))
       try {
-        const r = await api<{ lines: { i: number; line: string }[] }>('/api/ai', { method: 'POST', body: { kind: 'voices', news: cfg.news.text, items: pending.map((e) => ({ speaker: e.agent, listener: e.with, stance: e.stance, place: PLACES.find((p) => p.id === e.place)?.name })) } })
+        const r = await api<{ lines: { i: number; line: string }[] }>('/api/ai', { method: 'POST', body: { kind: 'voices', news: cfg.news.text, items: pending.map((e) => ({ speaker: e.agent, listener: e.with, stance: e.stance, place: placeName(cfg.layout, e.place) })) } })
         setVoiceNote('')
         const first = (n: string) => n.split(' ')[0]
         const agents = sim.state.agents
@@ -193,7 +203,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
       } catch (err) { setVoiceNote((err as Error).message) } finally { voiceBusy.current = false }
     }, 5000)
     return () => clearInterval(id)
-  }, [voicesOn, auth.session, replay, cfg.news.text, sim])
+  }, [voicesOn, auth.session, replay, cfg.news.text, cfg.layout, sim])
 
   // Agent minds: informed residents decide what to do next (language model). Each decision is RECORDED as a run input,
   // so saving, sharing and replaying reproduce the run exactly — the engine itself never calls a model.
@@ -209,13 +219,13 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
       mindBusy.current = true; mindCalls.current++
       ready.forEach((a) => decidedAt.current.set(a.id, st.tick))
       try {
-        const r = await api<{ decisions: { agent: number; action: string; say: string; shift: number }[] }>('/api/ai', { method: 'POST', body: { kind: 'decide', news: cfg.news.text, items: ready.map((a) => ({ agent: a.id, place: PLACES.find((p) => p.id === a.place)?.name, feeling: a.opinion, near: st.agents.filter((o) => o.id !== a.id && Math.abs(o.x - a.x) + Math.abs(o.y - a.y) <= 3).length, from: a.heardFrom, memory: a.memory.slice(0, 4) })) } })
+        const r = await api<{ decisions: { agent: number; action: string; say: string; shift: number }[] }>('/api/ai', { method: 'POST', body: { kind: 'decide', news: cfg.news.text, items: ready.map((a) => ({ agent: a.id, place: placeName(cfg.layout, a.place), feeling: a.opinion, near: st.agents.filter((o) => o.id !== a.id && Math.abs(o.x - a.x) + Math.abs(o.y - a.y) <= 3).length, from: a.heardFrom, memory: a.memory.slice(0, 4) })) } })
         setMindNote('')
         for (const d of r.decisions) if ((MIND_ACTIONS as readonly string[]).includes(d.action)) sim.intervene({ type: 'decide', agent: d.agent, action: d.action as (typeof MIND_ACTIONS)[number], text: d.say || '…', stance: d.shift })
       } catch (err) { setMindNote((err as Error).message) } finally { mindBusy.current = false }
     }, 7000)
     return () => clearInterval(id)
-  }, [mindsOn, auth.session, replay, cfg.news.text, sim])
+  }, [mindsOn, auth.session, replay, cfg.news.text, cfg.layout, sim])
 
   const s = sim.state
   const last = metrics[metrics.length - 1]
@@ -228,7 +238,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
     const a = sim.state.agents[sel]; const q = question.trim(); const hist = chat[sel] ?? []
     setAsking(true); setAskErr('')
     try {
-      const r = await api<{ answer: string }>('/api/ai', { method: 'POST', body: { kind: 'interview', agent: a.id, question: q, news: cfg.news.text, informed: a.informed, opinion: a.opinion, memory: a.memory, goal: a.goal, place: PLACES.find((p) => p.id === a.place)?.name, history: hist.slice(-4) } })
+      const r = await api<{ answer: string }>('/api/ai', { method: 'POST', body: { kind: 'interview', agent: a.id, question: q, news: cfg.news.text, informed: a.informed, opinion: a.opinion, memory: a.memory, goal: a.goal, place: placeName(cfg.layout, a.place), history: hist.slice(-4) } })
       setChat((c) => ({ ...c, [sel]: [...(c[sel] ?? []), { q, a: r.answer }] })); setQuestion('')
     } catch (e) { setAskErr((e as Error).message) } finally { setAsking(false) }
   }
@@ -264,7 +274,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
     <Header back />
     <div className="mx-auto max-w-[1500px] px-4 py-5 md:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-2xl tracking-[-.03em] md:text-3xl">{replay?.name ?? cfg.name}</h1>{cfg.town && <p className="mt-1 font-mono text-[11px] uppercase tracking-[.16em] text-ember-200/70">{townName(cfg.town)}</p>}<p className="mt-1 max-w-3xl text-sm text-white/50">News: “{cfg.news.text}”</p></div>
+        <div><h1 className="text-2xl tracking-[-.03em] md:text-3xl">{replay?.name ?? cfg.name}</h1>{(cfg.town || cfg.layout || cfg.residents) && <p className="mt-1 font-mono text-[11px] uppercase tracking-[.16em] text-ember-200/70">{[cfg.town ? townName(cfg.town) : '', cfg.layout ? layoutOf(cfg.layout).name : '', cfg.residents ? `${Object.keys(cfg.residents).map((k) => personaOf(Number(k))?.name.split(' ')[0]).join(', ')} changed` : ''].filter(Boolean).join(' · ')}</p>}<p className="mt-1 max-w-3xl text-sm text-white/50">News: “{cfg.news.text}”</p></div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-lg border border-white/10 px-3 py-2 font-mono text-sm tabular-nums whitespace-nowrap">{dayClock(Math.max(0, s.tick - 1 + (s.tick === 0 ? 0 : 1)))}</span>
           <button onClick={() => setRunning((r) => !r)} disabled={done} className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-40">{done ? 'Finished' : running ? <><Pause size={15} /> Pause</> : <><Play size={15} fill="currentColor" /> {s.tick === 0 ? 'Start' : 'Resume'}</>}</button>
@@ -277,7 +287,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
         <div className="min-w-0">
           {tour && <Tour onClose={closeTour} />}
           <p className="mb-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/75" aria-live="polite">{narrate(s, events, done, s.tick > 0, s.agents.length)}</p>
-          <Town agents={s.agents} selected={sel} mode={mode} onSelect={setSel} tick={s.tick} />
+          <Town agents={s.agents} selected={sel} mode={mode} onSelect={setSel} tick={s.tick} layout={cfg.layout} />
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-white/45">
             <div className="flex overflow-hidden rounded-lg border border-white/10">{(['opinion', 'informed'] as const).map((m) => <button key={m} onClick={() => setMode(m)} className={`px-3 py-1.5 ${mode === m ? 'bg-white/15 text-white' : 'hover:text-white'}`}>{m === 'opinion' ? 'Color: opinion' : 'Color: who knows'}</button>)}</div>
             <span className="text-white/30">Dot above each head =</span><span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#7c8499]" /> hasn't heard</span>

@@ -1,49 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowLeft, Check, Copy, Download, FlaskConical, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import { ROLES, personaOf } from '@/engine/world'
+import { ArrowLeft, Check, Copy, Download, FileText, FlaskConical, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { LAYOUT_META, RESIDENT_LIMIT, ROLES, personaOf, type LayoutId, type ResidentTweak } from '@/engine/world'
 import { TEMPLATES, TOWN_PRESETS } from '@/engine/templates'
-import { OUTCOMES, bands, type ChartMetric, compare, cfgFor, decodeExperiment, defaultExperiment, townComparison, encodeExperiment, fmt, hourLabel, hourToTick, ivsOf, pickRun, runBatch, summarize, toCsv, valuesOf, verdict, MAX_RUNS, TICKS, type Batch, type CondKind, type Condition, type Experiment, type OutcomeId } from '@/engine/lab'
+import { BandsChart } from '@/components/BandsChart'
+import { OUTCOMES, compare, cfgFor, decodeExperiment, defaultExperiment, layoutComparison, residentComparison, townComparison, encodeExperiment, fmt, hourLabel, ivsOf, pickRun, runBatch, summarize, toCsv, valuesOf, verdict, MAX_RUNS, type Batch, type CondKind, type Condition, type Experiment, type OutcomeId } from '@/engine/lab'
 
 const COLORS = ['#8b93a7', '#ff9a62', '#7ee0b0', '#c4a1ff']
 const PEOPLE = Array.from({ length: 16 }, (_, i) => i)
 const download = (name: string, mime: string, text: string) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000) }
+const TWEAKS: { key: keyof ResidentTweak; label: string; lo: string; hi: string }[] = [
+  { key: 'social', label: 'Sociability', lo: 'keeps to themselves', hi: 'talks to everyone' },
+  { key: 'trust', label: 'Trust in others', lo: 'doubts everything', hi: 'believes easily' },
+  { key: 'bias', label: 'Leaning', lo: 'toward the first side', hi: 'toward the second side' },
+]
+const firstResident = (r?: Record<string, ResidentTweak>): [string, ResidentTweak] | null => { const e = Object.entries(r ?? {})[0]; return e ? [e[0], e[1]] : null }
 const KIND_LABEL: Record<CondKind, string> = { none: 'Do nothing', announce: 'Public announcement', whisper: 'Whisper to one person' }
-
-/* ───────── distribution chart: median line + 10–90% band per condition ───────── */
-function Bands({ b, axis, metric, hoverTick, setHover }: { b: Batch; axis: [string, string]; metric: ChartMetric; hoverTick: number | null; setHover: (t: number | null) => void }) {
-  const W = 880, H = 330, pl = 46, pr = 14, pt = 18, pb = 34
-  const data = useMemo(() => b.results.map((rs) => bands(rs, TICKS, metric)), [b, metric])
-  const inf = metric === 'informed'
-  const show = (v: number) => (inf ? `${Math.round(v * 100)}%` : v.toFixed(2))
-  const all = data.flatMap((d) => [...d.lo, ...d.hi]); const lo = Math.min(-0.1, ...all), hi = Math.max(0.1, ...all)
-  const y0 = inf ? -0.03 : Math.floor(lo * 10) / 10 - 0.05, y1 = inf ? 1.03 : Math.ceil(hi * 10) / 10 + 0.05
-  const X = (t: number) => pl + (t / (TICKS - 1)) * (W - pl - pr), Y = (v: number) => pt + (1 - (v - y0) / (y1 - y0)) * (H - pt - pb)
-  const line = (v: number[], from = 0) => v.map((p, t) => (t < from ? '' : `${t === from ? 'M' : 'L'}${X(t).toFixed(1)},${Y(p).toFixed(1)}`)).join('')
-  const startOf = (i: number) => (i === 0 || b.x.conds[i].kind === 'none' ? 0 : Math.max(0, hourToTick(b.x.conds[i].hour) - 1))
-  const band = (d: { lo: number[]; hi: number[] }) => {
-    const ts = d.hi.map((v, t) => (Number.isNaN(v) ? -1 : t)).filter((t) => t >= 0)
-    if (!ts.length) return ''
-    return `${ts.map((t, k) => `${k ? 'L' : 'M'}${X(t).toFixed(1)},${Y(d.hi[t]).toFixed(1)}`).join('')}${[...ts].reverse().map((t) => `L${X(t).toFixed(1)},${Y(d.lo[t]).toFixed(1)}`).join('')}Z`
-  }
-  const ticks = inf ? [0, 0.2, 0.4, 0.6, 0.8, 1] : Array.from({ length: 6 }, (_, i) => y0 + ((y1 - y0) * i) / 5)
-  const hours = [8, 12, 16, 20, 24, 28, 31].map((h) => ({ h, t: (h - 7) * 6 })).filter((x) => x.t < TICKS)
-  const ref = useRef<SVGSVGElement>(null)
-  const move = (e: React.PointerEvent) => { const r = ref.current!.getBoundingClientRect(), t = Math.round(((e.clientX - r.left) / r.width * W - pl) / (W - pl - pr) * (TICKS - 1)); setHover(Math.max(0, Math.min(TICKS - 1, t))) }
-  const clk = (t: number) => `${String((7 + Math.floor(t / 6)) % 24).padStart(2, '0')}:${(t % 6) * 10 || '00'}`
-  return <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="w-full touch-none select-none" role="img" aria-label={`${inf ? 'Share of the town that has heard the news' : 'Opinion'} over the day for ${b.x.conds.map((c) => c.label).join(', ')}; shaded bands show the middle 80% of ${b.seeds.length} towns`} onPointerMove={move} onPointerLeave={() => setHover(null)}>
-    {ticks.map((v) => <g key={v}><line x1={pl} x2={W - pr} y1={Y(v)} y2={Y(v)} stroke="rgba(255,255,255,.07)" /><text x={pl - 8} y={Y(v) + 4} textAnchor="end" fontSize="11" fill="rgba(255,255,255,.4)" fontFamily="DM Mono, monospace">{inf ? `${Math.round(v * 100)}%` : (Math.abs(v) < 0.05 ? 0 : v).toFixed(1)}</text></g>)}
-    {y0 < 0 && y1 > 0 && <line x1={pl} x2={W - pr} y1={Y(0)} y2={Y(0)} stroke="rgba(255,255,255,.22)" strokeDasharray="3 4" />}
-    {hours.map((x) => <text key={x.h} x={X(x.t)} y={H - 10} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,.4)" fontFamily="DM Mono, monospace">{hourLabel(x.h)}</text>)}
-    <text x={pl} y={11} fontSize="10.5" fill="rgba(255,255,255,.4)">{inf ? 'everyone has heard ↑' : `${axis[1].toLowerCase()} ↑`}</text><text x={pl} y={H - 24} fontSize="10.5" fill="rgba(255,255,255,.4)">{inf ? '↓ nobody has heard' : `↓ ${axis[0].toLowerCase()}`}</text>
-    {data.map((d, i) => i === 0 || startOf(i) === 0 ? <path key={`b${i}`} d={band(d)} fill={COLORS[i]} opacity=".13" /> : <path key={`b${i}`} d={band({ lo: d.lo.map((v, t) => (t < startOf(i) ? NaN : v)), hi: d.hi.map((v, t) => (t < startOf(i) ? NaN : v)) })} fill={COLORS[i]} opacity=".13" />)}
-    {b.x.conds.map((c, i) => c.kind !== 'none' && <line key={`m${i}`} x1={X(hourToTick(c.hour))} x2={X(hourToTick(c.hour))} y1={pt} y2={H - pb} stroke={COLORS[i]} strokeDasharray="2 4" opacity=".5" />)}
-    {data.map((d, i) => <path key={`l${i}`} d={line(d.median, startOf(i))} fill="none" stroke={COLORS[i]} strokeWidth={i === 0 ? 2.8 : 2.4} strokeLinejoin="round" />)}
-    {hoverTick !== null && <g><line x1={X(hoverTick)} x2={X(hoverTick)} y1={pt} y2={H - pb} stroke="rgba(255,255,255,.35)" />{data.map((d, i) => hoverTick >= startOf(i) && <circle key={i} cx={X(hoverTick)} cy={Y(d.median[hoverTick])} r="4" fill={COLORS[i]} stroke="#0c0b0a" strokeWidth="1.5" />)}
-      <g transform={`translate(${Math.min(X(hoverTick) + 10, W - 250)},${pt + 4})`}><rect width="240" height={24 + data.length * 17} rx="8" fill="#17130f" stroke="rgba(255,255,255,.12)" /><text x="10" y="16" fontSize="11" fill="rgba(255,255,255,.55)" fontFamily="DM Mono, monospace">{clk(hoverTick)}</text>
-        {data.map((d, i) => <text key={i} x="10" y={34 + i * 17} fontSize="11.5" fill={COLORS[i]}>{b.x.conds[i].label}: {show(d.median[hoverTick])}{hoverTick < startOf(i) ? ' (same as baseline)' : ''}</text>)}</g></g>}
-  </svg>
-}
 
 /* ───────── page ───────── */
 export function Lab() {
@@ -116,8 +88,10 @@ export function Lab() {
             : <p className="mt-3 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/75">“{x.text}”</p>}
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <label className="text-xs text-white/50">The town<select value={x.town ?? 'default'} onChange={(e) => patch({ town: e.target.value === 'default' ? undefined : e.target.value })} className="ml-2 rounded-lg border border-white/10 bg-[#17130f] px-3 py-1.5 text-sm text-white outline-none focus:border-ember-300/50">{TOWN_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
-            <button onClick={() => { edited.current = true; setX((o) => ({ ...townComparison(o.template), text: o.text, custom: o.custom, n: Math.min(o.n, 60) })); setBatch(null) }} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/65 hover:border-ember-300/50 hover:text-white" title="Same news, nobody steps in, three kinds of town">Does the kind of town matter? Try it →</button>
+            <label className="text-xs text-white/50">Street plan<select value={x.layout ?? 'classic'} onChange={(e) => patch({ layout: e.target.value === 'classic' ? undefined : (e.target.value as LayoutId) })} className="ml-2 rounded-lg border border-white/10 bg-[#17130f] px-3 py-1.5 text-sm text-white outline-none focus:border-ember-300/50">{LAYOUT_META.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-xs text-white/40">Try a ready-made question:</span>
+            {([['Does the kind of town matter?', 'Same news, nobody steps in, three kinds of town', townComparison], ['Does the street plan matter?', 'Same news, nobody steps in, three street plans. Results differ by story, so try more than one.', layoutComparison], ['What if one person were different?', 'The same town, but one resident keeps to themselves (less sociable)', (tpl: string) => residentComparison(tpl, 8, { social: 0.4 })]] as const).map(([label, tip, make]) => <button key={label} onClick={() => { edited.current = true; setX((o) => ({ ...make(o.template), text: o.text, custom: o.custom, n: Math.min(o.n, 60) })); setBatch(null) }} title={tip} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/65 hover:border-ember-300/50 hover:text-white">{label} →</button>)}</div>
 
           <p className="mt-6 text-sm font-medium text-white/80">2 · The options to compare <span className="font-normal text-white/40">(the first is your baseline)</span></p>
           <div className="mt-3 space-y-3">{x.conds.map((c, i) => <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
@@ -129,7 +103,16 @@ export function Lab() {
               {c.kind !== 'none' && <label className="text-xs text-white/50">At<select value={c.hour} onChange={(e) => patchCond(i, { hour: Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-white/10 bg-[#17130f] px-3 py-2 text-sm text-white outline-none">{Array.from({ length: 15 }, (_, k) => k + 8).map((h) => <option key={h} value={h}>{hourLabel(h)}</option>)}</select></label>}
               {c.kind === 'whisper' && <label className="text-xs text-white/50">To<select value={c.agent} onChange={(e) => patchCond(i, { agent: Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-white/10 bg-[#17130f] px-3 py-2 text-sm text-white outline-none">{PEOPLE.slice(0, x.population).map((p) => <option key={p} value={p}>{personaOf(p)?.name ?? `Resident ${p + 1}`} ({personaOf(p)?.role})</option>)}</select></label>}
             </div>
-            <label className="mt-3 block text-xs text-white/50">In which town<select value={c.town ?? ''} onChange={(e) => patchCond(i, { town: e.target.value || undefined })} className="mt-1 w-full rounded-lg border border-white/10 bg-[#17130f] px-3 py-2 text-sm text-white outline-none sm:w-64"><option value="">Same as the town above</option>{TOWN_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs text-white/50">In which town<select value={c.town ?? ''} onChange={(e) => patchCond(i, { town: e.target.value || undefined })} className="mt-1 w-full rounded-lg border border-white/10 bg-[#17130f] px-3 py-2 text-sm text-white outline-none"><option value="">Same as the town above</option>{TOWN_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+              <label className="block text-xs text-white/50">Street plan<select value={c.layout ?? ''} onChange={(e) => patchCond(i, { layout: (e.target.value || undefined) as LayoutId | undefined })} className="mt-1 w-full rounded-lg border border-white/10 bg-[#17130f] px-3 py-2 text-sm text-white outline-none"><option value="">Same as the plan above</option>{LAYOUT_META.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+            </div>
+            {(() => { const cur = firstResident(c.residents); const who = cur ? Number(cur[0]) : -1; const tw = cur?.[1] ?? {}
+              return <details className="group mt-3" open={!!cur}><summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-ember-200 hover:underline">{cur ? `Changing ${personaOf(who)?.name.split(' ')[0] ?? 'one person'}` : 'Change one person (optional)'}</summary>
+                <div className="mt-2 rounded-lg border border-white/10 bg-black/20 p-3">
+                  <label className="block text-xs text-white/50">Who<select value={who} onChange={(e) => { const id = Number(e.target.value); patchCond(i, { residents: id < 0 ? undefined : { [String(id)]: tw } }) }} className="mt-1 w-full rounded-lg border border-white/10 bg-[#17130f] px-3 py-2 text-sm text-white outline-none sm:w-72"><option value={-1}>Nobody (everyone as they are)</option>{PEOPLE.slice(0, x.population).map((p) => <option key={p} value={p}>{personaOf(p)?.name} ({personaOf(p)?.role})</option>)}</select></label>
+                  {cur && <div className="mt-3 grid gap-3 sm:grid-cols-3">{TWEAKS.map((t2) => { const v = tw[t2.key] ?? 0; return <label key={t2.key} className="block text-xs text-white/50">{t2.label}: <b className="font-mono font-normal text-white">{v > 0 ? '+' : ''}{v.toFixed(1)}</b><input type="range" min={-RESIDENT_LIMIT} max={RESIDENT_LIMIT} step={0.1} value={v} onChange={(e) => { const nv = Math.round(Number(e.target.value) * 10) / 10; const next = { ...tw, [t2.key]: nv }; if (!nv) delete next[t2.key]; patchCond(i, { residents: { [String(who)]: next } }) }} className="mt-2 w-full accent-[#ff9a62]" /><span className="mt-0.5 flex justify-between text-[10px] text-white/30"><span>{t2.lo}</span><span>{t2.hi}</span></span></label> })}</div>}
+                </div></details> })()}
             {c.kind !== 'none' && <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_180px]"><label className="text-xs text-white/50">The words<input value={c.text} maxLength={240} onChange={(e) => patchCond(i, { text: e.target.value })} className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-ember-300/50" /></label>
               <label className="text-xs text-white/50">Tone: {c.stance < -0.2 ? `toward ${axis[0].toLowerCase()}` : c.stance > 0.2 ? `toward ${axis[1].toLowerCase()}` : 'neutral'}<input type="range" min={-1} max={1} step={0.1} value={c.stance} onChange={(e) => patchCond(i, { stance: Number(e.target.value) })} className="mt-3 w-full accent-[#ff9a62]" /></label></div>}
           </div>)}</div>
@@ -151,6 +134,7 @@ export function Lab() {
       {batch && base && <section className="mt-10" aria-live="polite">
         <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs uppercase tracking-[.2em] text-ember-200/60">Result · {batch.seeds.length} towns per option</p><h2 className="mt-2 text-2xl tracking-[-.03em] md:text-3xl">{o.label}</h2></div>
           <div className="flex flex-wrap gap-2"><button onClick={share} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 hover:text-white">{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Link copied' : 'Copy experiment link'}</button>
+            <Link to={`/app/lab/report?x=${encodeExperiment(batch.x)}`} className="inline-flex items-center gap-1.5 rounded-lg border border-ember-300/40 bg-ember-300/10 px-3 py-2 text-sm text-ember-100 hover:bg-ember-300/20"><FileText size={14} /> Make a report</Link>
             <button onClick={() => download('society-agent-experiment.csv', 'text/csv', toCsv(batch))} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 hover:text-white"><Download size={14} /> CSV</button></div></div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-2">{pairs.map((p, i) => p && (() => { const v = verdict(batch.x.conds[i].label, batch.x.conds[0].label, p, o, axis); return <div key={i} className={`rounded-2xl border p-5 ${v.tone === 'clear' ? 'border-[#7ee0b0]/30 bg-[#7ee0b0]/[.06]' : 'border-white/10 bg-white/[.025]'}`}>
@@ -159,7 +143,7 @@ export function Lab() {
 
         <div className="mt-5 rounded-2xl border border-white/10 bg-[#14110f] p-4 md:p-6">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">{batch.x.conds.map((c, i) => <span key={c.id} className="inline-flex items-center gap-2"><i className="size-3 rounded-full" style={{ background: COLORS[i] }} />{c.label}</span>)}<span className="text-xs text-white/40">line = typical town · shaded = middle 80% of towns{batch.x.conds.some((c) => c.kind !== 'none') ? ' · dotted = when the move happens (until then every option is the same town)' : ''}</span></div>
-          <div className="mt-3 overflow-x-auto"><div className="min-w-[620px]"><p className="mb-2 text-sm text-white/55">{o.id === 'half' ? 'How much of the town has heard the news, hour by hour' : 'How the town’s average opinion moves through the day'}</p><Bands b={batch} axis={axis} metric={o.id === 'half' ? 'informed' : 'opinion'} hoverTick={hover} setHover={setHover} /></div></div>
+          <div className="mt-3 overflow-x-auto"><div className="min-w-[620px]"><p className="mb-2 text-sm text-white/55">{o.id === 'half' ? 'How much of the town has heard the news, hour by hour' : 'How the town’s average opinion moves through the day'}</p><BandsChart b={batch} axis={axis} metric={o.id === 'half' ? 'informed' : 'opinion'} hoverTick={hover} setHover={setHover} colors={COLORS} /></div></div>
         </div>
 
         <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10"><table className="w-full text-sm"><caption className="sr-only">Summary of {o.label} per option</caption>

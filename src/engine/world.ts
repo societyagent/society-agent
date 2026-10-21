@@ -12,25 +12,56 @@ export type PlaceKind = 'civic' | 'food' | 'market' | 'school' | 'health' | 'par
 export type Door = 's' | 'n' | null
 export interface Place { id: string; name: string; kind: PlaceKind; x: number; y: number; w: number; h: number; door: Door }
 
-export const PLACES: Place[] = [
-  { id: 'hall', name: 'Town Hall', kind: 'civic', x: 19, y: 3, w: 9, h: 5, door: 's' },
-  { id: 'cafe', name: 'Corner Cafe', kind: 'food', x: 5, y: 4, w: 7, h: 4, door: 's' },
-  { id: 'market', name: 'Market', kind: 'market', x: 34, y: 4, w: 9, h: 5, door: 's' },
-  { id: 'school', name: 'School', kind: 'school', x: 5, y: 17, w: 9, h: 5, door: 's' },
-  { id: 'clinic', name: 'Clinic', kind: 'health', x: 35, y: 17, w: 8, h: 5, door: 's' },
-  { id: 'park', name: 'Riverside Park', kind: 'park', x: 19, y: 17, w: 9, h: 9, door: null },
-  ...[2, 8, 14, 20, 26, 32, 38, 44].map((x, i): Place => ({ id: `home${i}`, name: `House ${i + 1}`, kind: 'home', x, y: 11, w: 3, h: 3, door: 's' })),
-]
-// Streets: two horizontal roads (rows 9-10, 15-16) and two vertical streets (cols 17-18, 29-30).
-export const isRoad = (x: number, y: number) => y === 9 || y === 10 || y === 15 || y === 16 || x === 17 || x === 18 || x === 29 || x === 30
-/** 0 = blocked, 1 = road / sidewalk / park, 2 = a building's lobby row. Roofs stay blocked. */
-let COST: Uint8Array | null = null
-export function costGrid(): Uint8Array {
-  if (COST) return COST
+/** A town's shape. Every layout has the same named places (so residents' routines work everywhere) in different positions and street plans. */
+export type LayoutId = 'classic' | 'village' | 'mainstreet'
+export const LAYOUT_IDS: readonly LayoutId[] = ['classic', 'village', 'mainstreet']
+interface LayoutDef { id: LayoutId; name: string; blurb: string; hRoads: number[]; vRoads: number[]; places: Place[] }
+export interface Layout extends LayoutDef { isRoad: (x: number, y: number) => boolean; cost: Uint8Array }  // hRoads / vRoads come from LayoutDef
+
+const homes = (pos: [number, number][]): Place[] => pos.map(([x, y], i): Place => ({ id: `home${i}`, name: `House ${i + 1}`, kind: 'home', x, y, w: 3, h: 3, door: 's' }))
+const P = (id: string, name: string, kind: PlaceKind, x: number, y: number, w: number, h: number): Place => ({ id, name, kind, x, y, w, h, door: kind === 'park' ? null : 's' })
+
+const DEFS: Record<LayoutId, LayoutDef> = {
+  // Two avenues and two cross streets, a plaza in the middle. The original town.
+  classic: {
+    id: 'classic', name: 'Classic town', blurb: 'Two avenues and two cross streets, with a plaza in the middle.',
+    hRoads: [9, 15], vRoads: [17, 29],
+    places: [
+      P('hall', 'Town Hall', 'civic', 19, 3, 9, 5), P('cafe', 'Corner Cafe', 'food', 5, 4, 7, 4), P('market', 'Market', 'market', 34, 4, 9, 5),
+      P('school', 'School', 'school', 5, 17, 9, 5), P('clinic', 'Clinic', 'health', 35, 17, 8, 5), P('park', 'Riverside Park', 'park', 19, 17, 9, 9),
+      ...homes([[2, 11], [8, 11], [14, 11], [20, 11], [26, 11], [32, 11], [38, 11], [44, 11]]),
+    ],
+  },
+  // One crossroads and a tight core: every place is close to every other.
+  village: {
+    id: 'village', name: 'Village square', blurb: 'One crossroads with every place packed close around it.',
+    // Houses must stand directly above a road (their front door opens onto it), so a second street runs along the south edge.
+    hRoads: [13, 22], vRoads: [23],
+    places: [
+      P('cafe', 'Corner Cafe', 'food', 14, 8, 6, 4), P('hall', 'Town Hall', 'civic', 25, 7, 7, 5), P('market', 'Market', 'market', 34, 8, 6, 4),
+      P('school', 'School', 'school', 13, 16, 6, 5), P('park', 'Riverside Park', 'park', 25, 15, 6, 6), P('clinic', 'Clinic', 'health', 33, 16, 6, 5),
+      ...homes([[5, 9], [9, 9], [41, 9], [45, 9], [5, 18], [9, 18], [41, 18], [45, 18]]),
+    ],
+  },
+  // A long street: the town is strung out along it, with a second street at the bottom.
+  mainstreet: {
+    id: 'mainstreet', name: 'Long main street', blurb: 'One long street with the town strung out along it.',
+    hRoads: [13, 22], vRoads: [23],
+    places: [
+      P('cafe', 'Corner Cafe', 'food', 2, 8, 7, 4), P('hall', 'Town Hall', 'civic', 27, 7, 9, 5), P('market', 'Market', 'market', 40, 8, 7, 4),
+      P('school', 'School', 'school', 2, 16, 8, 5), P('park', 'Riverside Park', 'park', 15, 15, 7, 6), P('clinic', 'Clinic', 'health', 41, 16, 6, 5),
+      ...homes([[11, 9], [15, 9], [19, 9], [11, 18], [25, 18], [29, 18], [33, 18], [37, 18]]),
+    ],
+  },
+}
+
+function compile(d: LayoutDef): Layout {
+  const isRoad = (x: number, y: number) => d.hRoads.some((r) => y === r || y === r + 1) || d.vRoads.some((c) => x === c || x === c + 1)
+  const v0 = d.vRoads[0], vN = d.vRoads[d.vRoads.length - 1] + 1
   const g = new Uint8Array(GRID_W * GRID_H)
   const set = (x: number, y: number, v: number) => { if (x >= 0 && y >= 0 && x < GRID_W && y < GRID_H && !g[y * GRID_W + x]) g[y * GRID_W + x] = v }
   for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) if (isRoad(x, y)) g[y * GRID_W + x] = 1
-  for (const p of PLACES) {
+  for (const p of d.places) {
     if (p.kind === 'park') { for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) set(x, y, 1); continue }
     for (let x = p.x; x < p.x + p.w; x++) g[(p.y + p.h - 1) * GRID_W + x] = 2
     // Paved apron from the lobby down to the next road; if no road is close, a short sidewalk runs to the nearest vertical street.
@@ -40,17 +71,29 @@ export function costGrid(): Uint8Array {
     if (road >= 0) { for (let y = y0; y < road; y++) for (let x = p.x; x < p.x + p.w; x++) set(x, y, 1) }
     else {
       for (let x = p.x; x < p.x + p.w; x++) set(x, y0, 1)
-      if (p.x + p.w - 1 < 17) for (let x = p.x + p.w; x < 17; x++) set(x, y0, 1)
-      else if (p.x > 30) for (let x = p.x - 1; x > 30; x--) set(x, y0, 1)
+      if (p.x + p.w - 1 < v0) for (let x = p.x + p.w; x < v0; x++) set(x, y0, 1)
+      else if (p.x > vN) for (let x = p.x - 1; x > vN; x--) set(x, y0, 1)
     }
   }
-  COST = g
-  return g
+  return { ...d, isRoad, cost: g }
+}
+export const LAYOUT_META = LAYOUT_IDS.map((id) => ({ id, name: DEFS[id].name, blurb: DEFS[id].blurb }))
+const LAYOUTS = new Map<LayoutId, Layout>()
+export function layoutOf(id?: string): Layout {
+  const k: LayoutId = (LAYOUT_IDS as readonly string[]).includes(id ?? '') ? (id as LayoutId) : 'classic'
+  let l = LAYOUTS.get(k); if (!l) { l = compile(DEFS[k]); LAYOUTS.set(k, l) }
+  return l
 }
 
-export function route(sx: number, sy: number, tx: number, ty: number): [number, number][] {
+// The classic layout under its original names (kept so existing callers and saved runs keep working).
+export const PLACES: Place[] = DEFS.classic.places
+export const isRoad = (x: number, y: number) => layoutOf('classic').isRoad(x, y)
+/** 0 = blocked, 1 = road / sidewalk / park, 2 = a building's lobby row. Roofs stay blocked. */
+export const costGrid = (layout?: string): Uint8Array => layoutOf(layout).cost
+
+export function route(sx: number, sy: number, tx: number, ty: number, layout?: string): [number, number][] {
   if (sx === tx && sy === ty) return []
-  const g = costGrid(), N = GRID_W * GRID_H
+  const g = costGrid(layout), N = GRID_W * GRID_H
   const dist = new Float64Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1)
   const heap: [number, number][] = []
   const push = (d: number, i: number) => { heap.push([d, i]); let k = heap.length - 1; while (k > 0) { const par = (k - 1) >> 1; if (heap[par][0] <= heap[k][0]) break; [heap[par], heap[k]] = [heap[k], heap[par]]; k = par } }
@@ -78,7 +121,8 @@ export function route(sx: number, sy: number, tx: number, ty: number): [number, 
   return out.reverse()
 }
 
-export const placeById = (id: string) => PLACES.find((p) => p.id === id)!
+export const placeById = (id: string, layout?: string) => layoutOf(layout).places.find((p) => p.id === id)!
+export const placeName = (layout: string | undefined, id: string | null | undefined) => (id ? layoutOf(layout).places.find((p) => p.id === id)?.name ?? id : '')
 
 export interface Traits { social: number; trust: number; bias: number }
 export interface Agent {
@@ -97,10 +141,15 @@ export interface NewsCfg { text: string; stance: number; startTick: number; seed
 export interface TownCfg { trust: number; social: number; bias: number }
 export const TOWN_LIMIT = 0.3
 export const ROLES = ['official', 'journalist', 'organizer', 'nurse', 'teacher', 'shopkeeper', 'retiree', 'barista', 'student'] as const
+/** Per-resident adjustment, added on top of the town's character. Same bounds idea as `TownCfg`, a little wider because it targets one person. */
+export interface ResidentTweak { trust?: number; social?: number; bias?: number }
+export const RESIDENT_LIMIT = 0.5
 export interface Cfg {
   name: string; question: string; template: string
   news: NewsCfg; population: number; axis: [string, string]; seed: number
   town?: TownCfg
+  layout?: LayoutId
+  residents?: Record<string, ResidentTweak>
 }
 export interface State { tick: number; rng: number; agents: Agent[]; cfg: Cfg; newsStarted: boolean; talks: number }
 export interface Ev { tick: number; t: string; type: 'news' | 'say' | 'inform' | 'shift' | 'arrive' | 'intervene'; agent?: number; with?: number; place?: string; text: string; news?: boolean; stance?: string }
@@ -157,9 +206,10 @@ export function createState(cfg: Cfg): State {
   const n = Math.max(6, Math.min(PERSONAS.length, cfg.population))
   const shift = cfg.town && (cfg.town.trust || cfg.town.social || cfg.town.bias) ? cfg.town : null
   const agents: Agent[] = PERSONAS.slice(0, n).map((p, i) => {
-    const traits = shift ? { social: clamp(p.traits.social + shift.social, 0.05, 1), trust: clamp(p.traits.trust + shift.trust, 0.05, 0.95), bias: clamp(p.traits.bias + shift.bias, -1, 1) } : p.traits
+    const tw = cfg.residents?.[String(i)]
+    const traits = shift || tw ? { social: clamp(p.traits.social + (shift?.social ?? 0) + (tw?.social ?? 0), 0.05, 1), trust: clamp(p.traits.trust + (shift?.trust ?? 0) + (tw?.trust ?? 0), 0.05, 0.95), bias: clamp(p.traits.bias + (shift?.bias ?? 0) + (tw?.bias ?? 0), -1, 1) } : p.traits
     const home = `home${i % 8}`
-    const [x, y] = point(placeById(home), s, i)
+    const [x, y] = point(placeById(home, cfg.layout), s, i)
     return { ...p, traits, id: i, home, x, y, tx: x, ty: y, place: home, dest: home, path: [], goal: 'sleeping', informed: false, opinion: 0, heardAt: null, heardFrom: null, memory: [], line: null, lineAt: -99, stubborn: clamp(0.25 + (1 - traits.trust) * 0.5 + (p.age > 55 ? 0.15 : 0), 0, 0.9), lastWith: -1, lastWithAt: -99 }
   })
   return { tick: 0, rng: s.rng, agents, cfg, newsStarted: false, talks: 0 }
@@ -230,9 +280,9 @@ export function stepWorld(st: State): { events: Ev[]; metric: Metric } {
     if (st.tick % 3 === a.id % 3 || a.goal === 'sleeping') {
       const t = targetFor(a, st, s)
       if (t.place !== a.dest || a.goal !== t.goal) {
-        const [tx, ty] = point(placeById(t.place), s, a.id)
+        const [tx, ty] = point(placeById(t.place, st.cfg.layout), s, a.id)
         a.tx = tx; a.ty = ty; a.goal = t.goal; a.dest = t.place
-        a.path = route(a.x, a.y, tx, ty)
+        a.path = route(a.x, a.y, tx, ty, st.cfg.layout)
         if (a.path.length) a.place = null
         else a.place = a.dest
       }
@@ -369,7 +419,7 @@ export function summarize(st: State, metrics: Metric[], events: Ev[]) {
   if (half) lines.push(`Half the town knew within ${(half.tick * 10 / 60).toFixed(1)} simulated hours${all ? `; everyone knew after ${(all.tick * 10 / 60).toFixed(1)} hours` : ''}.`)
   else lines.push('The news had not yet reached half the town.')
   if (top) lines.push(`${top[0]} was the strongest spreader, directly informing ${top[1]} ${top[1] === 1 ? 'person' : 'people'}.`)
-  if (topPlace) lines.push(`Most conversation happened at ${placeById(topPlace[0])?.name ?? topPlace[0]} (${topPlace[1]} exchanges).`)
+  if (topPlace) lines.push(`Most conversation happened at ${placeName(st.cfg.layout, topPlace[0])} (${topPlace[1]} exchanges).`)
   if (last) lines.push(`Average opinion ended at ${last.mean.toFixed(2)} on the ${st.cfg.axis[0]} ↔ ${st.cfg.axis[1]} axis, with spread ${last.spread.toFixed(2)} — ${last.spread > 0.45 ? 'a polarized town' : last.spread > 0.25 ? 'noticeable disagreement' : 'broad agreement'}.`)
   lines.push(`${shifts} opinion shift${shifts === 1 ? '' : 's'} crossed a stance boundary after conversations or interventions.`)
   return lines
