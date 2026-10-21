@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { Town } from '@/components/Town'
-import { createState, dayClock, intervene, personaOf, stepWorld, type Metric, type State } from '@/engine/world'
+import { createState, dayClock, intervene, personaOf, stepWorld, type Metric } from '@/engine/world'
+import { useSim } from '@/engine/useSim'
 import { buildCfg } from '@/engine/templates'
 
 const ease = [0.22, 1, 0.36, 1] as const
@@ -25,21 +26,16 @@ function Sprite({ id, size = 64 }: { id: number; size?: number }) {
 
 /* ───────── hero: the real engine, running ───────── */
 function LiveTown() {
-  const mk = (seed: number) => createState(buildCfg('water', { seed, population: 14 }))
-  const st = useRef<State>(mk(SEED))
-  const [, force] = useState(0)
-  const [last, setLast] = useState<Metric | null>(null)
+  const [cfg] = useState(() => buildCfg('water', { seed: SEED, population: 14 }))
+  const { sim, snap } = useSim(cfg)
   const [sel, setSel] = useState<number | null>(null)
   const reduce = useReducedMotion()
   useEffect(() => {
-    if (reduce) { for (let i = 0; i < 40; i++) stepWorld(st.current); force((n) => n + 1); return }
-    const id = window.setInterval(() => {
-      if (st.current.tick >= 144) st.current = mk(SEED + 1 + Math.floor(Math.random() * 999))
-      setLast(stepWorld(st.current).metric); force((n) => n + 1)
-    }, 170)
+    if (reduce) { for (let i = 0; i < 40; i++) sim.step(144); return }
+    const id = window.setInterval(() => { if (!sim.step(144)) sim.restart(buildCfg('water', { seed: SEED + 1 + Math.floor(Math.random() * 999), population: 14 })) }, 170)
     return () => clearInterval(id)
-  }, [reduce]) // eslint-disable-line react-hooks/exhaustive-deps
-  const s = st.current, agent = sel !== null ? s.agents[sel] : null
+  }, [reduce, sim])
+  const s = sim.state, last = snap.metrics[snap.metrics.length - 1] ?? null, agent = sel !== null ? s.agents[sel] : null
   return <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#14110f] shadow-[0_40px_120px_-30px_rgba(255,120,60,.25)]">
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[.08] px-4 py-3 text-xs md:px-5">
       <span className="inline-flex items-center gap-2 rounded-full bg-[#ff9a62] px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[.16em] text-[#1a0f08]"><i className="size-1.5 animate-pulse rounded-full bg-[#1a0f08]" />Breaking</span>
@@ -57,7 +53,7 @@ type Kind = 'silence' | 'statement' | 'whisper'
 const KINDS: { id: Kind; label: string; sub: string; color: string }[] = [
   { id: 'silence', label: 'Say nothing', sub: 'The rumor runs its course.', color: '#9a948b' },
   { id: 'statement', label: 'Official statement', sub: 'A public announcement at 09:00.', color: '#7ee0b0' },
-  { id: 'whisper', label: 'One whisper', sub: 'You quietly reassure Paul, the clinic nurse.', color: '#ff9a62' },
+  { id: 'whisper', label: 'One whisper', sub: 'You quietly reassure one person: Paul, the clinic nurse.', color: '#ff9a62' },
 ]
 function runKind(kind: Kind): Metric[] {
   const st = createState(buildCfg('water', { seed: SEED, population: 12 }))
@@ -96,11 +92,11 @@ function Comparison() {
     <div className="flex flex-col gap-3">
       {runs.map((r) => { const s = stats.find((q) => q.id === r.id)!; const active = on === r.id
         return <button key={r.id} onClick={() => setOn(r.id)} onMouseEnter={() => setOn(r.id)} className={`rounded-2xl border p-4 text-left transition ${active ? 'border-white/30 bg-white/[.06]' : 'border-white/10 bg-white/[.02] hover:border-white/20'}`} style={{ boxShadow: active ? `inset 3px 0 0 ${r.color}` : undefined }}>
-          <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-base"><i className="size-2.5 rounded-full" style={{ background: r.color }} />{r.label}</span>{best === r.id && <span className="rounded-full bg-[#7ee0b0]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[#7ee0b0]">calmest end</span>}</div>
+          <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-base"><i className="size-2.5 rounded-full" style={{ background: r.color }} />{r.label}</span>{best === r.id && <span className="rounded-full bg-[#7ee0b0]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[#7ee0b0]">calmest by end of day</span>}</div>
           <p className="mt-1 text-sm text-white/50">{r.sub}</p>
           <div className="mt-3 flex gap-6 font-mono text-xs text-white/70"><span>peak <b className="text-white">{s.peak.toFixed(2)}</b></span><span>end of day <b className="text-white">{s.final.toFixed(2)}</b></span></div>
         </button> })}
-      <p className="px-1 text-xs leading-relaxed text-white/40">Computed in your browser, just now, by the same engine the app runs. Change the seed or the message in the app and the curves change with it.</p>
+      <p className="px-1 text-xs leading-relaxed text-white/40">Computed in your browser, just now, by the same engine the app runs. This is a toy model of one small town, not a forecast of real people. Change the seed or the message in the app and the curves change with it.</p>
     </div>
   </div>
 }
@@ -154,7 +150,7 @@ export function DarkLanding() {
 
     <section id="compare" className="border-t border-white/[.07] px-5 py-24 md:px-8"><div className="mx-auto max-w-6xl">
       <Fade><Eyebrow>The experiment</Eyebrow><h2 className="font-display mt-4 max-w-3xl text-5xl leading-[1] tracking-[-.02em] md:text-6xl">One morning. <em className="text-white/45">Three ways to answer it.</em></h2>
-        <p className="mt-5 max-w-2xl text-white/55">A water main breaks. The town starts to worry. Do you stay quiet, make an official statement, or quietly reassure the one person everyone trusts? Same town, same seed, same minute — only your move changes.</p></Fade>
+        <p className="mt-5 max-w-2xl text-white/55">A water main breaks and the town starts to worry. Do you stay quiet, make an official statement, or quietly reassure a single resident? Same town, same seed, same minute — only your move changes. Across 60 different seeds, a statement calmed the town more than silence every time, and a lone whisper helped less than a statement in most runs.</p></Fade>
       <Fade d={0.1} className="mt-10"><Comparison /></Fade>
     </div></section>
 

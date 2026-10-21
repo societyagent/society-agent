@@ -55,7 +55,7 @@ function buildStatic(img: HTMLImageElement, cell: number): HTMLCanvasElement {
   ctx.fillStyle = 'rgba(226,229,245,0.85)'
   const dash = (x: number, y: number, w: number, h: number) => ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)))
   const lw = Math.max(1, cell * 0.12)
-  for (const ry of [9, 15]) for (let x = 0; x < GRID_W; x++) if (!isRoad(x, ry - 1) || true) { if (x % 2 === 0 && !(x >= 17 && x <= 18) && !(x >= 29 && x <= 30)) dash((x + 0.15) * cell, (ry + 1) * cell - lw / 2, cell * 0.7, lw) }
+  for (const ry of [9, 15]) for (let x = 0; x < GRID_W; x++) { if (x % 2 === 0 && !(x >= 17 && x <= 18) && !(x >= 29 && x <= 30)) dash((x + 0.15) * cell, (ry + 1) * cell - lw / 2, cell * 0.7, lw) }
   for (const rx of [17, 29]) for (let y = 0; y < GRID_H; y++) if (y % 2 === 0 && !(y >= 9 && y <= 10) && !(y >= 15 && y <= 16)) dash((rx + 1) * cell - lw / 2, (y + 0.15) * cell, lw, cell * 0.7)
   // park: bushes on the rim, trees inside, a little path
   for (let y = park.y; y < park.y + park.h; y++) for (let x = park.x; x < park.x + park.w; x++) {
@@ -97,9 +97,10 @@ export function Town({ agents, selected, mode, onSelect, tick }: TownProps) {
   const ref = useRef<HTMLCanvasElement>(null)
   const anim = useRef<{ pos: Map<number, { x: number; y: number; face: number; step: number }>; raf: number; last: number }>({ pos: new Map(), raf: 0, last: 0 })
   const live = useRef({ agents, selected, mode, tick })
-  live.current = { agents, selected, mode, tick }
+  useEffect(() => { live.current = { agents, selected, mode, tick } })
 
   useEffect(() => {
+    const A = anim.current
     const cv = ref.current!
     const ctx = cv.getContext('2d')!
     const img = new Image(); let ready = false; let stat: HTMLCanvasElement | null = null; let statCell = 0
@@ -116,9 +117,9 @@ export function Town({ agents, selected, mode, onSelect, tick }: TownProps) {
     const draw = (now: number) => {
       const { agents, selected, mode, tick } = live.current
       const cell = cv.width / GRID_W
-      const dt = Math.min(0.1, (now - (anim.current.last || now)) / 1000); anim.current.last = now
+      const dt = Math.min(0.1, (now - (A.last || now)) / 1000); A.last = now
       ctx.imageSmoothingEnabled = false
-      if (!ready) { ctx.fillStyle = '#3ec7a3'; ctx.fillRect(0, 0, cv.width, cv.height); anim.current.raf = requestAnimationFrame(draw); return }
+      if (!ready) { ctx.fillStyle = '#3ec7a3'; ctx.fillRect(0, 0, cv.width, cv.height); A.raf = requestAnimationFrame(draw); return }
       if (!stat || statCell !== cell) { stat = buildStatic(img, cell); statCell = cell }
       ctx.drawImage(stat, 0, 0)
 
@@ -127,13 +128,13 @@ export function Town({ agents, selected, mode, onSelect, tick }: TownProps) {
       for (const a of agents) { const k = `${Math.round(a.x)},${Math.round(a.y)}`; const g = groups.get(k) ?? []; g.push(a.id); groups.set(k, g) }
       const sprites: { a: Agent; cx: number; fy: number; moving: boolean }[] = []
       for (const a of agents) {
-        const cur = anim.current.pos.get(a.id) ?? { x: a.x, y: a.y, face: 1, step: 0 }
+        const cur = A.pos.get(a.id) ?? { x: a.x, y: a.y, face: 1, step: 0 }
         const k = 1 - Math.pow(0.0006, dt)
         const dx = a.x - cur.x, dy = a.y - cur.y
         const moving = Math.hypot(dx, dy) > 0.06
         if (moving) { cur.face = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 0 : 3) : dy < 0 ? 2 : 1; cur.step += dt * 9 } else cur.step = 0
         cur.x += dx * k; cur.y += dy * k
-        anim.current.pos.set(a.id, cur)
+        A.pos.set(a.id, cur)
         const g = groups.get(`${Math.round(a.x)},${Math.round(a.y)}`) ?? [a.id]
         const slot = g.indexOf(a.id) - (g.length - 1) / 2
         sprites.push({ a, cx: (cur.x + 0.5 + slot * 0.8) * cell, fy: (cur.y + 1) * cell, moving })
@@ -143,7 +144,7 @@ export function Town({ agents, selected, mode, onSelect, tick }: TownProps) {
       const tags: { nm: string; cx: number; fy: number; sel: boolean }[] = []
       const size = cell * 1.5
       for (const { a, cx, fy, moving } of sprites) {
-        const cur = anim.current.pos.get(a.id)!
+        const cur = A.pos.get(a.id)!
         const col = cur.face, row = moving ? 1 + (Math.floor(cur.step) % 2) : 0
         const idx = spriteBase(a.id) + row * COLS + col
         const sel = selected === a.id
@@ -200,10 +201,10 @@ export function Town({ agents, selected, mode, onSelect, tick }: TownProps) {
       const hr = ((7 * 60 + tick * 10) % 1440) / 60
       const night = hr >= 21 || hr < 6 ? 0.34 : hr >= 19 ? 0.16 : hr < 7 ? 0.14 : 0
       if (night) { ctx.fillStyle = `rgba(8,10,40,${night})`; ctx.fillRect(0, 0, cv.width, cv.height) }
-      anim.current.raf = requestAnimationFrame(draw)
+      A.raf = requestAnimationFrame(draw)
     }
-    anim.current.raf = requestAnimationFrame(draw)
-    return () => { cancelAnimationFrame(anim.current.raf); ro.disconnect() }
+    A.raf = requestAnimationFrame(draw)
+    return () => { cancelAnimationFrame(A.raf); ro.disconnect() }
   }, [])
 
   const hit = (e: React.MouseEvent<HTMLCanvasElement>) => {

@@ -1,12 +1,14 @@
 import type { Cfg, Intervention } from '../src/engine/world'
 import { createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
 
-export interface Env { DB: D1Database; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string }
+export interface Env { DB: D1Database; HEALTH_TOKEN?: string; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string }
 export type Ctx = { request: Request; env: Env; params: Record<string, string | string[]> }
 
 export const MAX_TICKS = 288
 export const MAX_IVS = 40
 const AUTH_HEADER = 'author' + 'ization'
+export const COOKIE = '__Host-sa_session' // __Host- prefix: Secure, Path=/, no Domain — cannot be set by a sibling subdomain
+export const SESSION_TTL = 60 * 60 * 24 * 7
 
 export const MAX_RUNS_PER_OWNER = 200
 const API_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cross-origin-resource-policy': 'same-origin' }
@@ -42,23 +44,34 @@ export async function allow(env: Env, key: string, limit: number, windowSec: num
 
 export const clientIp = (r: Request) => r.headers.get('cf-connecting-ip') ?? 'unknown'
 
-/** Resolve the wallet address for a bearer session, or null. */
+/** Read the session token from the HttpOnly cookie (browsers) or a bearer header (API clients / tests). */
+export function sessionToken(request: Request): string | null {
+  const cookie = /(?:^|;\s*)__Host-sa_session=([a-f0-9]{64})(?:;|$)/i.exec(request.headers.get('cookie') ?? '')
+  if (cookie) return cookie[1].toLowerCase()
+  const m = /^Bearer\s+([a-f0-9]{64})$/i.exec(request.headers.get(AUTH_HEADER) ?? '')
+  return m ? m[1].toLowerCase() : null
+}
+export const sessionCookie = (token: string, maxAge: number) => `${COOKIE}=${token}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`
+
+/** Resolve the wallet address for the current session, or null. */
 export async function sessionAddress(ctx: Ctx): Promise<string | null> {
-  const h = ctx.request.headers.get(AUTH_HEADER) ?? ''
-  const m = /^Bearer\s+([a-f0-9]{64})$/i.exec(h)
-  if (!m) return null
-  const row = await ctx.env.DB.prepare('SELECT address, expires_at FROM sessions WHERE token_hash = ?').bind(await sha256(m[1].toLowerCase())).first<{ address: string; expires_at: number }>()
+  const token = sessionToken(ctx.request)
+  if (!token) return null
+  const row = await ctx.env.DB.prepare('SELECT address, expires_at FROM sessions WHERE token_hash = ?').bind(await sha256(token)).first<{ address: string; expires_at: number }>()
   if (!row || row.expires_at < Math.floor(Date.now() / 1000)) return null
   return row.address
 }
 
 const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d)
-const str = (v: unknown, max: number, d = '') => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) : d)
+const str = (v: unknown, max: number, d = '') => (typeof v === 'string' ? [...v].map((ch) => (ch.charCodeAt(0) < 32 ? ' ' : ch)).join('').trim().slice(0, max) : d)
 
-export function sanitizeCfg(raw: any): Cfg | null {
-  if (!raw || typeof raw !== 'object') return null
-  const news = raw.news ?? {}
-  const axis = Array.isArray(raw.axis) ? raw.axis : ['Calm', 'Alarmed']
+type Raw = Record<string, unknown>
+const obj = (v: unknown): Raw => (v && typeof v === 'object' ? (v as Raw) : {})
+export function sanitizeCfg(input: unknown): Cfg | null {
+  if (!input || typeof input !== 'object') return null
+  const raw = input as Raw
+  const news = obj(raw.news)
+  const axis = Array.isArray(raw.axis) ? (raw.axis as unknown[]) : ['Calm', 'Alarmed']
   const cfg: Cfg = {
     name: str(raw.name, 80, 'Untitled scenario') || 'Untitled scenario',
     question: str(raw.question, 400),
@@ -70,22 +83,22 @@ export function sanitizeCfg(raw: any): Cfg | null {
       text: str(news.text, 240),
       stance: num(news.stance, -1, 1, 0.5),
       startTick: Math.round(num(news.startTick, 0, 40, 2)),
-      seedRoles: Array.isArray(news.seedRoles) ? news.seedRoles.map((r: unknown) => str(r, 20)).filter(Boolean).slice(0, 6) : ['official'],
+      seedRoles: Array.isArray(news.seedRoles) ? (news.seedRoles as unknown[]).map((r) => str(r, 20)).filter(Boolean).slice(0, 6) : ['official'],
     },
   }
   return cfg.news.text ? cfg : null
 }
 
-export function sanitizeIvs(raw: any): { tick: number; iv: Intervention }[] | null {
+export function sanitizeIvs(raw: unknown): { tick: number; iv: Intervention }[] | null {
   if (!Array.isArray(raw) || raw.length > MAX_IVS) return null
   const out: { tick: number; iv: Intervention }[] = []
-  for (const r of raw) {
-    const tick = Math.round(num(r?.tick, 0, MAX_TICKS, 0))
-    const iv = r?.iv
-    const text = str(iv?.text, 240)
+  for (const item of raw) {
+    const r = obj(item), iv = obj(r.iv)
+    const tick = Math.round(num(r.tick, 0, MAX_TICKS, 0))
+    const text = str(iv.text, 240)
     if (!text) return null
-    const stance = num(iv?.stance, -1, 1, 0)
-    if (iv?.type === 'announce') out.push({ tick, iv: { type: 'announce', text, stance } })
+    const stance = num(iv.stance, -1, 1, 0)
+    if (iv.type === 'announce') out.push({ tick, iv: { type: 'announce', text, stance } })
     else if (iv?.type === 'whisper') out.push({ tick, iv: { type: 'whisper', agent: Math.round(num(iv.agent, 0, 15, 0)), text, stance } })
     else return null
   }
@@ -104,4 +117,24 @@ export function simulate(cfg: Cfg, ticks: number, ivs: { tick: number; iv: Inter
     metrics.push(r.metric); events.push(...r.events)
   }
   return { st, metrics, events, report: summarize(st, metrics, events) }
+}
+
+/** Best-effort: never let logging break a request. */
+export async function logError(env: Env, e: { source: 'client' | 'server'; kind: string; message: string; route?: string; detail?: string }) {
+  try {
+    const message = e.message.slice(0, 300), route = (e.route ?? '').slice(0, 120)
+    const fp = (await sha256(`${e.source}|${e.kind}|${route}|${message.replace(/\d+/g, '#')}`)).slice(0, 16)
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO errors (at, source, kind, fingerprint, message, route, detail) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(Math.floor(Date.now() / 1000), e.source, e.kind.slice(0, 24), fp, message, route, (e.detail ?? '').slice(0, 600)),
+      env.DB.prepare('DELETE FROM errors WHERE at < ?').bind(Math.floor(Date.now() / 1000) - 14 * 86400),
+    ])
+  } catch { /* logging must never throw */ }
+}
+export async function audit(env: Env, event: string, actor: string, target = '') {
+  try {
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO audit (at, event, actor, target) VALUES (?, ?, ?, ?)').bind(Math.floor(Date.now() / 1000), event, actor, target.slice(0, 64)),
+      env.DB.prepare('DELETE FROM audit WHERE at < ?').bind(Math.floor(Date.now() / 1000) - 90 * 86400),
+    ])
+  } catch { /* auditing must never throw */ }
 }

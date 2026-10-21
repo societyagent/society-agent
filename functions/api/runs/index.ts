@@ -1,4 +1,4 @@
-import { allow, fail, json, MAX_RUNS_PER_OWNER, MAX_TICKS, randomToken, readJson, sanitizeCfg, sanitizeIvs, sessionAddress, simulate, type Ctx } from '../../_lib'
+import { allow, audit, fail, json, MAX_RUNS_PER_OWNER, MAX_TICKS, randomToken, readJson, sanitizeCfg, sanitizeIvs, sessionAddress, simulate, type Ctx } from '../../_lib'
 
 /** GET /api/runs — the signed-in user's saved runs (summary only). */
 export const onRequestGet = async (ctx: Ctx) => {
@@ -32,5 +32,6 @@ export const onRequestPost = async (ctx: Ctx) => {
     `INSERT INTO runs (id, owner, name, template, ticks, cfg_json, ivs_json, metrics_json, events_json, report_json, final_informed, final_mean, shared, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
   ).bind(id, owner, cfg.name, cfg.template, ticks, JSON.stringify(cfg), JSON.stringify(ivs), JSON.stringify(metrics), JSON.stringify(events), JSON.stringify(report), last.informed, last.mean, Date.now()).run()
+  await audit(ctx.env, 'run_saved', owner, id)
   return json({ id }, 201)
 }

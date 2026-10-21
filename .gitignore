@@ -32,3 +32,4 @@ wrangler.toml
 !.dev.vars.example
 dist/
 node_modules/
+backups/

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { api, useAuth } from '@/lib/auth'
-import { PLACES, clock, createState, dayClock, intervene, stepWorld, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
+import { PLACES, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
 import { TEMPLATES, buildCfg } from '@/engine/templates'
+import { useSim, useSimClock } from '@/engine/useSim'
 
 type Speed = 1 | 4 | 12
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
@@ -117,14 +118,12 @@ function narrate(st: State, events: Ev[], done: boolean, started: boolean, total
 /* ───────── Simulation ───────── */
 export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: number; iv: Intervention }[]; ticks: number; id: string; shared: boolean; isOwner: boolean; name: string } }) {
   const loc = (window.history.state?.usr ?? {}) as { cfg?: Cfg }
-  const cfg = replay?.cfg ?? loc.cfg ?? buildCfg('water')
+  // Created once: a fallback scenario must keep the same random seed for the life of the page (so Save stores what was simulated).
+  const [cfg] = useState<Cfg>(() => replay?.cfg ?? loc.cfg ?? buildCfg('water'))
   const nav = useNavigate()
   const auth = useAuth()
-  const st = useRef<State>(createState(cfg))
-  const [, force] = useState(0)
-  const [metrics, setMetrics] = useState<Metric[]>([])
-  const [events, setEvents] = useState<Ev[]>([])
-  const [ivs, setIvs] = useState<{ tick: number; iv: Intervention }[]>([])
+  const { sim, snap } = useSim(cfg, replay?.ivs)
+  const { metrics, events, ivs } = snap
   const [running, setRunning] = useState(!replay)
   const [speed, setSpeed] = useState<Speed>(4)
   const [sel, setSel] = useState<number | null>(null)
@@ -146,47 +145,31 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
   const [question, setQuestion] = useState(''); const [asking, setAsking] = useState(false); const [askErr, setAskErr] = useState('')
   const [analysis, setAnalysis] = useState(''); const [analysing, setAnalysing] = useState(false); const [aiErr, setAiErr] = useState('')
   const log = useRef<HTMLDivElement>(null)
-  const replayIvs = useRef([...(replay?.ivs ?? [])])
 
-  const advance = useCallback(() => {
-    const s = st.current
-    if (s.tick >= MAX) { setRunning(false); return }
-    const fresh: Ev[] = []
-    while (replayIvs.current.length && replayIvs.current[0].tick <= s.tick) fresh.push(...intervene(s, replayIvs.current.shift()!.iv))
-    const r = stepWorld(s)
-    fresh.push(...r.events)
-    setMetrics((m) => [...m, r.metric]); if (fresh.length) setEvents((e) => [...e, ...fresh])
-    force((n) => n + 1)
-  }, [MAX])
-
-  useEffect(() => { if (!running) return; const id = window.setInterval(advance, 1000 / (speed === 1 ? 2 : speed === 4 ? 6 : 16)); return () => clearInterval(id) }, [running, speed, advance])
+  useSimClock(sim, running, 1000 / (speed === 1 ? 2 : speed === 4 ? 6 : 16), MAX, () => setRunning(false))
   useEffect(() => { log.current?.scrollTo({ top: log.current.scrollHeight }) }, [events.length])
 
   const evKey = (e: Ev) => `${e.tick}-${e.agent}-${e.with}`
-  // Keep the latest events in a ref so the voice timer is created once and never reset by per-tick state changes.
-  const eventsRef = useRef<Ev[]>([])
-  eventsRef.current = events
   useEffect(() => {
     if (!voicesOn || !auth.session || replay) return
-    const token = auth.session.token
-    const id = window.setInterval(async () => {
+        const id = window.setInterval(async () => {
       if (voiceBusy.current || voiceCalls.current >= 14) { if (voiceCalls.current >= 14) setVoiceNote('Voice limit for this run reached.'); return }
-      const pending = eventsRef.current.filter((e) => e.type === 'say' && e.news && e.agent !== undefined && e.with !== undefined && !voiced.current.has(evKey(e))).slice(-4)
+      const pending = sim.getSnapshot().events.filter((e) => e.type === 'say' && e.news && e.agent !== undefined && e.with !== undefined && !voiced.current.has(evKey(e))).slice(-4)
       if (!pending.length) return
       voiceBusy.current = true; voiceCalls.current++
       pending.forEach((e) => voiced.current.add(evKey(e)))
       try {
-        const r = await api<{ lines: { i: number; line: string }[] }>('/api/ai', { method: 'POST', token, body: { kind: 'voices', news: cfg.news.text, items: pending.map((e) => ({ speaker: e.agent, listener: e.with, stance: e.stance, place: PLACES.find((p) => p.id === e.place)?.name })) } })
+        const r = await api<{ lines: { i: number; line: string }[] }>('/api/ai', { method: 'POST', body: { kind: 'voices', news: cfg.news.text, items: pending.map((e) => ({ speaker: e.agent, listener: e.with, stance: e.stance, place: PLACES.find((p) => p.id === e.place)?.name })) } })
         setVoiceNote('')
-        const byKey = new Map(r.lines.map((l) => [evKey(pending[l.i]), l.line]))
-        setEvents((all) => all.map((e) => { const line = byKey.get(evKey(e)); return line ? { ...e, text: `${st.current.agents[e.agent!].name.split(' ')[0]} to ${st.current.agents[e.with!].name.split(' ')[0]}: “${line}”` } : e }))
-        for (const l of r.lines) { const e = pending[l.i]; const a = st.current.agents[e.agent!]; if (a) { a.line = l.line; a.lineAt = st.current.tick } }
+        const first = (n: string) => n.split(' ')[0]
+        const agents = sim.state.agents
+        sim.voice(r.lines.filter((l) => pending[l.i]).map((l) => { const e = pending[l.i]; return { key: evKey(e), agent: e.agent!, line: l.line, text: `${first(agents[e.agent!].name)} to ${first(agents[e.with!].name)}: “${l.line}”` } }), evKey)
       } catch (err) { setVoiceNote((err as Error).message) } finally { voiceBusy.current = false }
     }, 5000)
     return () => clearInterval(id)
-  }, [voicesOn, auth.session, replay, cfg.news.text]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [voicesOn, auth.session, replay, cfg.news.text, sim])
 
-  const s = st.current
+  const s = sim.state
   const last = metrics[metrics.length - 1]
   const done = s.tick >= MAX
   const agent = sel !== null ? s.agents[sel] : null
@@ -194,10 +177,10 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
 
   const ask = async () => {
     if (!auth.session || sel === null || !question.trim() || asking) return
-    const a = st.current.agents[sel]; const q = question.trim(); const hist = chat[sel] ?? []
+    const a = sim.state.agents[sel]; const q = question.trim(); const hist = chat[sel] ?? []
     setAsking(true); setAskErr('')
     try {
-      const r = await api<{ answer: string }>('/api/ai', { method: 'POST', token: auth.session.token, body: { kind: 'interview', agent: a.id, question: q, news: cfg.news.text, informed: a.informed, opinion: a.opinion, memory: a.memory, goal: a.goal, place: PLACES.find((p) => p.id === a.place)?.name, history: hist.slice(-4) } })
+      const r = await api<{ answer: string }>('/api/ai', { method: 'POST', body: { kind: 'interview', agent: a.id, question: q, news: cfg.news.text, informed: a.informed, opinion: a.opinion, memory: a.memory, goal: a.goal, place: PLACES.find((p) => p.id === a.place)?.name, history: hist.slice(-4) } })
       setChat((c) => ({ ...c, [sel]: [...(c[sel] ?? []), { q, a: r.answer }] })); setQuestion('')
     } catch (e) { setAskErr((e as Error).message) } finally { setAsking(false) }
   }
@@ -206,24 +189,24 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
     setAnalysing(true); setAiErr('')
     try {
       const step = Math.max(1, Math.floor(metrics.length / 24))
-      const r = await api<{ analysis: string }>('/api/ai', { method: 'POST', token: auth.session.token, body: { kind: 'analysis', question: cfg.question, news: cfg.news.text, axis: cfg.axis, report, metrics: metrics.filter((_, i) => i % step === 0 || i === metrics.length - 1), events: events.filter((e) => e.type !== 'say').slice(-30).map((e) => `${e.t}: ${e.text}`) } })
+      const r = await api<{ analysis: string }>('/api/ai', { method: 'POST', body: { kind: 'analysis', question: cfg.question, news: cfg.news.text, axis: cfg.axis, report, metrics: metrics.filter((_, i) => i % step === 0 || i === metrics.length - 1), events: events.filter((e) => e.type !== 'say').slice(-30).map((e) => `${e.t}: ${e.text}`) } })
       setAnalysis(r.analysis)
     } catch (e) { setAiErr((e as Error).message) } finally { setAnalysing(false) }
   }
   const send = () => {
     if (!text.trim()) return
     const iv: Intervention = target === 'all' ? { type: 'announce', text, stance } : { type: 'whisper', agent: target, text, stance }
-    setIvs((p) => [...p, { tick: s.tick, iv }]); setEvents((e) => [...e, ...intervene(s, iv)]); setText(''); force((n) => n + 1)
+    sim.intervene(iv); setText('')
   }
-  const reset = () => { st.current = createState(cfg); replayIvs.current = [...(replay?.ivs ?? [])]; setMetrics([]); setEvents([]); setIvs([]); setSaved(null); setSel(null); setRunning(true); voiced.current = new Set(); voiceCalls.current = 0; setChat({}); setAnalysis(''); setVoiceNote(''); force((n) => n + 1) }
+  const reset = () => { sim.reset(); setSaved(null); setSel(null); setRunning(true); voiced.current = new Set(); voiceCalls.current = 0; setChat({}); setAnalysis(''); setVoiceNote('') }
   const save = async () => {
     if (!auth.session) return
     setSaveErr('')
-    try { const r = await api<{ id: string }>('/api/runs', { method: 'POST', token: auth.session.token, body: { cfg, ticks: Math.max(12, s.tick), interventions: ivs } }); setSaved({ id: r.id, shared: false }) } catch (e) { setSaveErr((e as Error).message) }
+    try { const r = await api<{ id: string }>('/api/runs', { method: 'POST', body: { cfg, ticks: Math.max(12, s.tick), interventions: ivs } }); setSaved({ id: r.id, shared: false }) } catch (e) { setSaveErr((e as Error).message) }
   }
   const share = async () => {
     if (!auth.session || !saved) return
-    try { const r = await api<{ shared: boolean }>(`/api/runs/${saved.id}`, { method: 'PATCH', token: auth.session.token, body: { shared: !saved.shared } }); setSaved({ ...saved, shared: r.shared }) } catch (e) { setSaveErr((e as Error).message) }
+    try { const r = await api<{ shared: boolean }>(`/api/runs/${saved.id}`, { method: 'PATCH', body: { shared: !saved.shared } }); setSaved({ ...saved, shared: r.shared }) } catch (e) { setSaveErr((e as Error).message) }
   }
   const link = saved ? `${location.origin}/r/${saved.id}` : ''
   const exportJson = () => download(`${cfg.name.replace(/\W+/g, '-').toLowerCase()}-run.json`, 'application/json', JSON.stringify({ cfg, ticks: s.tick, interventions: ivs, metrics, events, report: summarize(s, metrics, events) }, null, 2))
@@ -328,12 +311,14 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
 }
 
 /* ───────── My runs ───────── */
+interface RunSummary { id: string; name: string; template: string; ticks: number; final_informed: number; final_mean: number; shared: number; created_at: number }
+interface RunData { id: string; name: string; cfg: Cfg; interventions: { tick: number; iv: Intervention }[]; ticks: number; shared: boolean; isOwner: boolean }
 export function MyRuns() {
   const auth = useAuth()
-  const [runs, setRuns] = useState<any[] | null>(null)
+  const [runs, setRuns] = useState<RunSummary[] | null>(null)
   const [err, setErr] = useState('')
-  useEffect(() => { if (!auth.session) return; api<{ runs: any[] }>('/api/runs', { token: auth.session.token }).then((r) => setRuns(r.runs)).catch((e) => setErr(e.message)) }, [auth.session])
-  const del = async (id: string) => { if (!auth.session) return; await api(`/api/runs/${id}`, { method: 'DELETE', token: auth.session.token }); setRuns((r) => r?.filter((x) => x.id !== id) ?? null) }
+  useEffect(() => { if (!auth.session) return; api<{ runs: RunSummary[] }>('/api/runs').then((r) => setRuns(r.runs)).catch((e) => setErr(e.message)) }, [auth.session])
+  const del = async (id: string) => { if (!auth.session) return; await api(`/api/runs/${id}`, { method: 'DELETE' }); setRuns((r) => r?.filter((x) => x.id !== id) ?? null) }
   return <main className="min-h-screen bg-[#0c0b0a] text-white"><Header back />
     <div className="mx-auto max-w-4xl px-4 py-10 md:px-6"><h1 className="text-3xl tracking-[-.04em]">My runs</h1>
       {!auth.session ? <div className="mt-8"><SignIn busy={auth.busy} error={auth.error} onSignIn={auth.signIn} /></div> : err ? <p className="mt-6 text-rose-300">{err}</p> : runs === null ? <p className="mt-6 text-white/40">Loading…</p> : runs.length === 0 ? <div className="mt-8 rounded-2xl border border-dashed border-white/15 p-8 text-center text-white/50">No saved runs yet. <Link to="/app" className="text-ember-200 hover:underline">Start a simulation</Link>, then press “Save run”.</div> :
@@ -345,9 +330,9 @@ export function MyRuns() {
 export function RunView() {
   const { id } = useParams()
   const auth = useAuth()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<RunData | null>(null)
   const [err, setErr] = useState('')
-  useEffect(() => { api(`/api/runs/${id}`, { token: auth.session?.token }).then(setData).catch((e) => setErr(e.status === 404 ? 'This run doesn’t exist or isn’t shared.' : e.message)) }, [id, auth.session])
+  useEffect(() => { api<RunData>(`/api/runs/${id}`).then(setData).catch((e) => setErr(e.status === 404 ? 'This run doesn’t exist or isn’t shared.' : e.message)) }, [id, auth.session])
   if (err) return <main className="grid min-h-screen place-items-center bg-[#0c0b0a] px-4 text-center text-white"><div><p className="text-white/60">{err}</p><Link to="/app" className="mt-4 inline-block text-ember-200 hover:underline">Start your own simulation</Link></div></main>
   if (!data) return <main className="grid min-h-screen place-items-center bg-[#0c0b0a] text-white/40">Loading run…</main>
   return <Simulation key={data.id} replay={{ cfg: data.cfg, ivs: data.interventions, ticks: data.ticks, id: data.id, shared: data.shared, isOwner: data.isOwner, name: data.name }} />

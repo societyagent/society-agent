@@ -1,0 +1,26 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+
+permissions: { contents: read }
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Typecheck, lint, unit tests
+        run: npm test
+      - name: Dependency audit (production + build tooling)
+        run: npm audit --audit-level=high
+      - name: Production build
+        run: npm run build
+        env: { VITE_REOWN_PROJECT_ID: ${{ vars.VITE_REOWN_PROJECT_ID }} }
+      - name: No secrets or vendor names in the client bundle
+        run: |
+          ! grep -rIE "sk-[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY|AI_API_KEY" dist

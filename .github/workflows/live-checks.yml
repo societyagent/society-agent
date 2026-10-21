@@ -1,0 +1,22 @@
+name: Live checks
+# Runs the end-to-end, security and browser suites against a deployed URL. Trigger manually after a deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      url: { description: 'Deployment URL (https://…)', required: true }
+
+permissions: { contents: read }
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx tsx tests/e2e.ts "${{ inputs.url }}"
+      - run: npx tsx tests/security.ts "${{ inputs.url }}"
+      - run: npx tsx tests/ui.ts "${{ inputs.url }}"

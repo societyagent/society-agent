@@ -291,7 +291,7 @@ export function intervene(st: State, iv: Intervention): Ev[] {
   if (iv.type === 'announce') {
     evs.push({ tick: st.tick, t: dayClock(st.tick), type: 'intervene', text: `Public announcement: "${text}"` })
     for (const a of st.agents) {
-      if (!a.informed) { st.cfg.news.text = st.cfg.news.text; inform(st, a, null, iv.stance * 0.3, evs, 'announcement') }
+      if (!a.informed) { inform(st, a, null, iv.stance * 0.3, evs, 'announcement') }
       else {
         const before = stance(a.opinion)
         a.opinion = clamp(a.opinion + (iv.stance - a.opinion) * 0.35 * a.traits.trust)

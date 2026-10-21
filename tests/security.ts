@@ -56,6 +56,31 @@ const wrongChain = await call('/api/auth/challenge', { method: 'POST', body: { a
 check('W6', 'P3', 'challenge rejects a non-numeric chainId', wrongChain.status === 400, String(wrongChain.status))
 const token = probe.token!
 
+// ── 3b. Session cookie + CSRF ───────────────────────────────────────────
+{
+  const acct = privateKeyToAccount(generatePrivateKey())
+  const c = (await call('/api/auth/challenge', { method: 'POST', body: { address: acct.address, chainId: 1 } })).data
+  const v = await call('/api/auth/verify', { method: 'POST', body: { id: c.id, address: acct.address, signature: await acct.signMessage({ message: c.message }) } })
+  const sc = v.headers.get('set-cookie') ?? ''
+  check('K1', 'P1', 'session cookie is HttpOnly', /;\s*HttpOnly/i.test(sc))
+  check('K2', 'P1', 'session cookie is Secure', /;\s*Secure/i.test(sc))
+  check('K3', 'P1', 'session cookie is SameSite=Strict', /;\s*SameSite=Strict/i.test(sc))
+  check('K4', 'P2', 'session cookie uses the __Host- prefix (Path=/, no Domain)', /^__Host-/.test(sc) && /Path=\//.test(sc) && !/Domain=/i.test(sc))
+  const cookie = sc.split(';')[0]
+  const viaCookie = await call('/api/auth/me', { headers: { cookie } })
+  check('K5', 'P0', 'the cookie alone authenticates (no bearer header needed)', viaCookie.status === 200 && viaCookie.data.address === acct.address, String(viaCookie.status))
+  const evil = await call('/api/runs', { method: 'POST', headers: { cookie, origin: 'https://evil.example' }, body: { cfg: {}, ticks: 24 } })
+  check('K6', 'P0', 'state-changing request from another origin is refused (403) even with a valid cookie', evil.status === 403, String(evil.status))
+  const evil2 = await call('/api/runs/0123456789abcdef', { method: 'DELETE', headers: { cookie, 'sec-fetch-site': 'cross-site' } })
+  check('K7', 'P0', 'cross-site fetch metadata is refused (403)', evil2.status === 403, String(evil2.status))
+  const good = await call('/api/runs', { method: 'POST', headers: { cookie, origin: BASE }, body: { cfg: { name: 'k', question: 'q', template: 'water', axis: ['a', 'b'], population: 8, seed: 3, news: { text: 'n', stance: 0.5, startTick: 2, seedRoles: ['official'] } }, ticks: 24 } })
+  check('K8', 'P1', 'same-origin request with the cookie succeeds', good.status === 201, String(good.status))
+  if (good.status === 201) await call(`/api/runs/${good.data.id}`, { method: 'DELETE', headers: { cookie, origin: BASE } })
+  const out = await call('/api/auth/me', { method: 'DELETE', headers: { cookie, origin: BASE } })
+  check('K9', 'P1', 'sign-out clears the cookie', /Max-Age=0/i.test(out.headers.get('set-cookie') ?? ''))
+  check('K10', 'P0', 'after sign-out the old cookie no longer works', (await call('/api/auth/me', { headers: { cookie } })).status === 401)
+}
+
 // ── 4. Input handling ──────────────────────────────────────────────────
 for (const id of ["' OR 1=1--", '../../etc/passwd', '0123456789abcdeg', '%00', 'a'.repeat(200)]) {
   const r = await call(`/api/runs/${encodeURIComponent(id)}`, { token })

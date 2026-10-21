@@ -1,7 +1,5 @@
 import { getAddress, isAddress, verifyMessage } from 'viem'
-import { allow, clientIp, fail, json, randomToken, readJson, sha256, type Ctx } from '../../_lib'
-
-const SESSION_TTL = 60 * 60 * 24 * 7
+import { allow, audit, clientIp, fail, json, randomToken, readJson, sessionCookie, sha256, SESSION_TTL, type Ctx } from '../../_lib'
 
 /** POST /api/auth/verify {id, address, signature} -> session token. Challenge is burned atomically. */
 export const onRequestPost = async (ctx: Ctx) => {
@@ -30,5 +28,6 @@ export const onRequestPost = async (ctx: Ctx) => {
     ctx.env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now),
     ctx.env.DB.prepare('DELETE FROM challenges WHERE expires_at < ?').bind(now - 3600),
   ])
-  return json({ token, address: addr, expiresAt: (now + SESSION_TTL) * 1000 })
+  await audit(ctx.env, 'signin', addr)
+  return json({ token, address: addr, expiresAt: (now + SESSION_TTL) * 1000 }, 200, { 'set-cookie': sessionCookie(token, SESSION_TTL) })
 }
