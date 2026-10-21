@@ -28,7 +28,7 @@ export interface TownProps {
 
 function opinionColor(a: Agent, mode: 'opinion' | 'informed'): string {
   if (!a.informed) return '#7c8499'
-  if (mode === 'informed') return '#a78bfa'
+  if (mode === 'informed') return '#ffb98a'
   const v = Math.max(-1, Math.min(1, a.opinion))
   if (v >= 0) return `rgb(${Math.round(120 + 119 * v)},${Math.round(200 - 110 * v)},${Math.round(150 - 70 * v)})`
   return `rgb(${Math.round(120 + 50 * v)},${Math.round(200 + 30 * v)},${Math.round(150 - 90 * v)})`

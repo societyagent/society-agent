@@ -1,61 +1,74 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 export interface Session { token: string; address: string; expiresAt: number }
 const KEY = 'society-agent-session-v1'
 const ERR = 'Request failed'
+const REOWN = !!(import.meta.env.VITE_REOWN_PROJECT_ID as string | undefined)?.trim()
 
 export function loadSession(): Session | null {
   try { const s = JSON.parse(localStorage.getItem(KEY) || 'null') as Session | null; return s && s.expiresAt > Date.now() ? s : null } catch { return null }
 }
-export const saveSession = (s: Session | null) => { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY) }
+const persist = (s: Session | null) => { try { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY) } catch { /* storage blocked */ } }
 
-export async function api<T = any>(path: string, opts: { method?: string; body?: unknown; token?: string } = {}): Promise<T> {
+export async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown; token?: string } = {}): Promise<T> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (opts.token) headers['author' + 'ization'] = `Bearer ${opts.token}`
   const res = await fetch(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) })
-  const data = await res.json().catch(() => ({}))
+  const data = (await res.json().catch(() => ({}))) as { error?: string }
   if (!res.ok) { const e = new Error(data.error || ERR) as Error & { status?: number }; e.status = res.status; throw e }
   return data as T
 }
 
+/* One shared auth store, so the header, the simulation and every page see the same session. */
+interface AuthState { session: Session | null; busy: boolean; error: string }
+let state: AuthState = { session: loadSession(), busy: false, error: '' }
+const listeners = new Set<() => void>()
+const set = (patch: Partial<AuthState>) => { state = { ...state, ...patch }; listeners.forEach((f) => f()) }
+const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f) } }
+
 interface Eth { request: (a: { method: string; params?: unknown[] }) => Promise<unknown>; on?: (e: string, f: () => void) => void }
-const eth = (): Eth | undefined => (window as unknown as { ethereum?: Eth }).ethereum
+const injected = (): Eth | undefined => (window as unknown as { ethereum?: Eth }).ethereum
+
+let started = false
+function boot() {
+  if (started) return; started = true
+  // Never trust local storage alone: confirm a stored session with a private endpoint.
+  const s = loadSession()
+  if (s) api('/api/auth/me', { token: s.token }).catch((e: { status?: number }) => { if (e.status === 401) { persist(null); set({ session: null }) } })
+  injected()?.on?.('accountsChanged', () => { void signOut() })
+}
+
+export async function signOut() {
+  const s = state.session
+  persist(null); set({ session: null })
+  if (s) api('/api/auth/me', { method: 'DELETE', token: s.token }).catch(() => {})
+  if (REOWN) import('./web3').then((m) => m.disconnectWallet()).catch(() => {})
+}
+
+export async function signIn() {
+  if (state.busy) return
+  set({ error: '', busy: true })
+  try {
+    let provider: { request: Eth['request'] }, address: string, chainId = 1
+    if (REOWN) ({ provider, address, chainId } = await (await import('./web3')).connectWallet())
+    else {
+      const p = injected()
+      if (!p) throw new Error('No browser wallet found. Install MetaMask, Rabby or Coinbase Wallet to sign in.')
+      provider = p; address = ((await p.request({ method: 'eth_requestAccounts' })) as string[])[0]
+      const id = Number(await p.request({ method: 'eth_chainId' })); if (Number.isInteger(id) && id > 0) chainId = id
+    }
+    const ch = await api<{ id: string; message: string }>('/api/auth/challenge', { method: 'POST', body: { address, chainId } })
+    const signature = (await provider.request({ method: 'personal_sign', params: [ch.message, address] })) as string
+    const s = await api<Session>('/api/auth/verify', { method: 'POST', body: { id: ch.id, address, signature } })
+    persist(s); set({ session: s })
+  } catch (e) {
+    const err = e as { code?: number; message?: string }
+    set({ error: err.code === 4001 || /reject|denied|cancel/i.test(err.message || '') ? 'Signature cancelled. Nothing was sent.' : err.message || 'Sign-in failed' })
+  } finally { set({ busy: false }) }
+}
 
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(() => loadSession())
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  const signOut = useCallback(async () => {
-    const s = loadSession()
-    saveSession(null); setSession(null)
-    if (s) api('/api/auth/me', { method: 'DELETE', token: s.token }).catch(() => {})
-  }, [])
-
-  // Validate a stored session against a private endpoint, never trust local storage alone.
-  useEffect(() => {
-    const s = loadSession()
-    if (!s) return
-    api('/api/auth/me', { token: s.token }).catch((e) => { if (e.status === 401) { saveSession(null); setSession(null) } })
-  }, [])
-  useEffect(() => { eth()?.on?.('accountsChanged', () => signOut()) }, [signOut])
-
-  const signIn = useCallback(async () => {
-    setError(''); setBusy(true)
-    try {
-      const p = eth()
-      if (!p) throw new Error('No wallet found. Install MetaMask, Rabby, or Coinbase Wallet to sign in.')
-      const accounts = (await p.request({ method: 'eth_requestAccounts' })) as string[]
-      const address = accounts[0]
-      const ch = await api<{ id: string; message: string }>('/api/auth/challenge', { method: 'POST', body: { address } })
-      const signature = (await p.request({ method: 'personal_sign', params: [ch.message, address] })) as string
-      const s = await api<Session>('/api/auth/verify', { method: 'POST', body: { id: ch.id, address, signature } })
-      saveSession(s); setSession(s)
-    } catch (e) {
-      const err = e as { code?: number; message?: string }
-      setError(err.code === 4001 || /reject|denied/i.test(err.message || '') ? 'Signature cancelled — nothing was sent.' : err.message || 'Sign-in failed')
-    } finally { setBusy(false) }
-  }, [])
-
-  return { session, busy, error, signIn, signOut }
+  boot()
+  const s = useSyncExternalStore(subscribe, () => state)
+  return { ...s, signIn, signOut }
 }

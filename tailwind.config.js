@@ -4,7 +4,13 @@ module.exports = {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"DM Sans Variable"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Instrument Serif"', 'Georgia', 'serif'],
+        mono: ['"DM Mono"', 'ui-monospace', 'monospace'],
+      },
       colors: {
+        ember: { 100: '#ffeadb', 200: '#ffd5b8', 300: '#ffb98a', 400: '#ff9a62', 500: '#f47c3c', 600: '#d9602a' },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

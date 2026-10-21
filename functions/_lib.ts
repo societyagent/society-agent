@@ -8,15 +8,20 @@ export const MAX_TICKS = 288
 export const MAX_IVS = 40
 const AUTH_HEADER = 'author' + 'ization'
 
+export const MAX_RUNS_PER_OWNER = 200
+const API_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cross-origin-resource-policy': 'same-origin' }
 export const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } })
+  new Response(JSON.stringify(data), { status, headers: { ...API_HEADERS, ...headers } })
 export const fail = (status: number, error: string) => json({ error }, status)
 
 export const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
 export async function sha256(text: string) { return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))) }
 export const randomToken = (bytes = 32) => hex(crypto.getRandomValues(new Uint8Array(bytes)).buffer as ArrayBuffer)
 
+/** Parse a JSON body, refusing anything over 200 KB *before* it is read into memory. */
 export async function readJson<T = Record<string, unknown>>(request: Request): Promise<T | null> {
+  const declared = Number(request.headers.get('content-length') ?? 0)
+  if (declared > 200_000) return null
   try { const t = await request.text(); if (t.length > 200_000) return null; return JSON.parse(t) as T } catch { return null }
 }
 
@@ -30,6 +35,8 @@ export async function allow(env: Env, key: string, limit: number, windowSec: num
        window_start = CASE WHEN ?2 - window_start >= ?3 THEN ?2 ELSE window_start END
      RETURNING count`,
   ).bind(key, now, windowSec).first<{ count: number }>()
+  // Housekeeping: ~1% of calls drop limiter rows that have been idle for a day, so the table cannot grow without bound.
+  if (crypto.getRandomValues(new Uint8Array(1))[0] < 3) await env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(now - 86400).run().catch(() => {})
   return (row?.count ?? 1) <= limit
 }
 

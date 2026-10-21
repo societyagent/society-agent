@@ -23,7 +23,7 @@ ok('challenge with bad address -> 400', (await call('/api/auth/challenge', 'POST
 
 // 3. real challenge -> forged signature -> real signature
 const ch = (await call('/api/auth/challenge', 'POST', { address: acct.address })).data
-ok('challenge issued with message + id', !!ch.id && ch.message?.includes(acct.address) && ch.message.includes('will not cost any gas'))
+ok('challenge issued with message + id', !!ch.id && ch.message?.includes(acct.address) && /gas/.test(ch.message) && ch.message.includes('Nonce: ' + ch.id))
 const forged = await other.signMessage({ message: ch.message })
 const f = await call('/api/auth/verify', 'POST', { id: ch.id, address: acct.address, signature: forged })
 ok('signature from a DIFFERENT wallet -> 401', f.status === 401)

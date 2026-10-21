@@ -5,12 +5,12 @@ const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({ theme: 'd
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('aix-theme') as Theme | null : null
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('society-agent-theme') as Theme | null : null
     return saved === 'light' ? 'light' : 'dark'
   })
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('aix-theme', theme)
+    localStorage.setItem('society-agent-theme', theme)
   }, [theme])
   return (
     <ThemeCtx.Provider value={{ theme, toggle: () => setTheme(t => (t === 'dark' ? 'light' : 'dark')) }}>
