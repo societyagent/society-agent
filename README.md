@@ -55,3 +55,9 @@ npx tsx tests/e2e.ts https://your-deployment.pages.dev   # API: auth, privacy, s
 
 ## License
 MIT — see [LICENSE](LICENSE). Map art notice in [NOTICE.md](NOTICE.md).
+
+## Agent minds
+
+Turn on **Agent minds** and residents who have heard the news decide for themselves whether to *warn*, *reassure*, *check the facts* or *stay quiet*, and say it in their own words (any OpenAI-compatible model).
+
+The engine never calls a model. Each decision is **recorded as a run input**, validated by the server (known action, real resident, bounded effect, at most 40 per run) and applied deterministically. That is why a saved or shared run replays to the identical result for everyone.

@@ -283,7 +283,18 @@ export function stepWorld(st: State): { events: Ev[]; metric: Metric } {
   return { events: evs, metric: { tick: st.tick, informed: informedAgents.length / st.agents.length, mean, spread, talks: st.talks } }
 }
 
-export type Intervention = { type: 'announce'; text: string; stance: number } | { type: 'whisper'; agent: number; text: string; stance: number }
+export const MIND_ACTIONS = ['warn', 'reassure', 'verify', 'stay_quiet'] as const
+export type MindAction = (typeof MIND_ACTIONS)[number]
+/**
+ * `decide` is a resident's own choice (typically produced by a language model, then RECORDED as an input).
+ * The engine never calls a model: given the recorded decision it applies a bounded, fully deterministic effect,
+ * so a run with minds on replays byte-for-byte on the server and for every viewer.
+ */
+export type Intervention =
+  | { type: 'announce'; text: string; stance: number }
+  | { type: 'whisper'; agent: number; text: string; stance: number }
+  | { type: 'decide'; agent: number; action: MindAction; text: string; stance: number }
+export const HEARING_RADIUS = 3
 
 export function intervene(st: State, iv: Intervention): Ev[] {
   const evs: Ev[] = []
@@ -298,6 +309,27 @@ export function intervene(st: State, iv: Intervention): Ev[] {
         remember(a, st.tick, `Official announcement: "${text}"`)
         if (stance(a.opinion) !== before) evs.push({ tick: st.tick, t: dayClock(st.tick), type: 'shift', agent: a.id, text: `${first(a.name)} shifted from ${before} to ${stance(a.opinion)} after the announcement.` })
       }
+    }
+  } else if (iv.type === 'decide') {
+    const a = st.agents[iv.agent]
+    if (!a || !a.informed) return evs // only someone who has heard the news can act on it
+    const shift = Math.max(-0.3, Math.min(0.3, iv.stance))
+    const verb = { warn: 'warn the others', reassure: 'reassure the others', verify: 'check the facts first', stay_quiet: 'stay quiet' }[iv.action]
+    const said = iv.action === 'stay_quiet' ? '' : ': "' + text + '"'
+    evs.push({ tick: st.tick, t: dayClock(st.tick), type: 'intervene', agent: a.id, text: `${first(a.name)} chooses to ${verb}${said || '.'}` })
+    const before = stance(a.opinion)
+    a.opinion = clamp(iv.action === 'verify' ? a.opinion * 0.7 + shift : a.opinion + shift)
+    remember(a, st.tick, `I decided to ${verb}${said}`)
+    if (stance(a.opinion) !== before) evs.push({ tick: st.tick, t: dayClock(st.tick), type: 'shift', agent: a.id, text: `${first(a.name)} shifted from ${before} to ${stance(a.opinion)}` })
+    if (iv.action === 'stay_quiet') return evs
+    const target = iv.action === 'warn' ? 0.6 : iv.action === 'reassure' ? -0.5 : 0
+    for (const l of st.agents) {
+      if (l.id === a.id || Math.abs(l.x - a.x) + Math.abs(l.y - a.y) > HEARING_RADIUS) continue
+      if (!l.informed) { inform(st, l, a, 0, evs, 'conversation'); continue }
+      const was = stance(l.opinion)
+      l.opinion = clamp(l.opinion + (target - l.opinion) * 0.22 * l.traits.trust * (1 - 0.5 * l.stubborn))
+      remember(l, st.tick, `${first(a.name)} said: "${text}"`)
+      if (stance(l.opinion) !== was) evs.push({ tick: st.tick, t: dayClock(st.tick), type: 'shift', agent: l.id, with: a.id, text: `${first(l.name)} shifted from ${was} to ${stance(l.opinion)} after ${first(a.name)} spoke` })
     }
   } else {
     const a = st.agents[iv.agent]

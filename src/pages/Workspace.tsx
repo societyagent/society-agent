@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
+import { BrainCircuit, ArrowLeft, Bookmark, Check, ChevronDown, Copy, Download, LogOut, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { api, useAuth } from '@/lib/auth'
-import { PLACES, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
+import { MIND_ACTIONS, PLACES, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
 import { TEMPLATES, buildCfg } from '@/engine/templates'
 import { useSim, useSimClock } from '@/engine/useSim'
 
@@ -139,6 +139,9 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
   // AI layer — purely cosmetic/explanatory: it never changes simulation state, so runs stay reproducible.
   const [voicesOn, setVoicesOn] = useState(false)
   const [voiceNote, setVoiceNote] = useState('')
+  const [mindsOn, setMindsOn] = useState(false)
+  const [mindNote, setMindNote] = useState('')
+  const mindBusy = useRef(false); const mindCalls = useRef(0); const decidedAt = useRef(new Map<number, number>())
   const voiced = useRef<Set<string>>(new Set())
   const voiceCalls = useRef(0); const voiceBusy = useRef(false)
   const [chat, setChat] = useState<Record<number, { q: string; a: string }[]>>({})
@@ -169,6 +172,28 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
     return () => clearInterval(id)
   }, [voicesOn, auth.session, replay, cfg.news.text, sim])
 
+  // Agent minds: informed residents decide what to do next (language model). Each decision is RECORDED as a run input,
+  // so saving, sharing and replaying reproduce the run exactly — the engine itself never calls a model.
+  useEffect(() => {
+    if (!mindsOn || !auth.session || replay) return
+    const id = window.setInterval(async () => {
+      if (mindBusy.current) return
+      if (mindCalls.current >= 12) { setMindNote('Mind limit for this run reached.'); return }
+      const st = sim.state
+      const ready = st.agents.filter((a) => a.informed && (!decidedAt.current.has(a.id) || st.tick - decidedAt.current.get(a.id)! > 30))
+        .sort((a, b) => b.traits.social - a.traits.social || a.id - b.id).slice(0, 3)
+      if (!ready.length) return
+      mindBusy.current = true; mindCalls.current++
+      ready.forEach((a) => decidedAt.current.set(a.id, st.tick))
+      try {
+        const r = await api<{ decisions: { agent: number; action: string; say: string; shift: number }[] }>('/api/ai', { method: 'POST', body: { kind: 'decide', news: cfg.news.text, items: ready.map((a) => ({ agent: a.id, place: PLACES.find((p) => p.id === a.place)?.name, feeling: a.opinion, near: st.agents.filter((o) => o.id !== a.id && Math.abs(o.x - a.x) + Math.abs(o.y - a.y) <= 3).length, from: a.heardFrom, memory: a.memory.slice(0, 4) })) } })
+        setMindNote('')
+        for (const d of r.decisions) if ((MIND_ACTIONS as readonly string[]).includes(d.action)) sim.intervene({ type: 'decide', agent: d.agent, action: d.action as (typeof MIND_ACTIONS)[number], text: d.say || '…', stance: d.shift })
+      } catch (err) { setMindNote((err as Error).message) } finally { mindBusy.current = false }
+    }, 7000)
+    return () => clearInterval(id)
+  }, [mindsOn, auth.session, replay, cfg.news.text, sim])
+
   const s = sim.state
   const last = metrics[metrics.length - 1]
   const done = s.tick >= MAX
@@ -198,7 +223,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
     const iv: Intervention = target === 'all' ? { type: 'announce', text, stance } : { type: 'whisper', agent: target, text, stance }
     sim.intervene(iv); setText('')
   }
-  const reset = () => { sim.reset(); setSaved(null); setSel(null); setRunning(true); voiced.current = new Set(); voiceCalls.current = 0; setChat({}); setAnalysis(''); setVoiceNote('') }
+  const reset = () => { sim.reset(); decidedAt.current = new Map(); mindCalls.current = 0; setMindNote(''); setSaved(null); setSel(null); setRunning(true); voiced.current = new Set(); voiceCalls.current = 0; setChat({}); setAnalysis(''); setVoiceNote('') }
   const save = async () => {
     if (!auth.session) return
     setSaveErr('')
@@ -237,8 +262,10 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
             <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#ef5a46]" /> alarmed</span>
             {!replay && (auth.session
               ? <button onClick={() => setVoicesOn((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${voicesOn ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 hover:text-white'}`}><Mic size={13} /> AI voices {voicesOn ? 'on' : 'off'}</button>
-              : <button onClick={auth.signIn} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 hover:text-white"><Mic size={13} /> Sign in for AI voices</button>)}
+              : <button onClick={auth.signIn} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 hover:text-white"><Mic size={13} /> Sign in for AI voices &amp; minds</button>)}
+            {!replay && auth.session && <button onClick={() => setMindsOn((v) => !v)} aria-pressed={mindsOn} title="Residents who heard the news decide for themselves whether to warn, reassure, check facts or stay quiet. Their choices are recorded, so the run replays exactly." className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${mindsOn ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 hover:text-white'}`}><BrainCircuit size={13} /> Agent minds {mindsOn ? 'on' : 'off'}</button>}
             {voiceNote && <span className="text-amber-200/80">{voiceNote}</span>}
+            {mindNote && <span className="text-amber-200/80">{mindNote}</span>}
             <button onClick={() => setTour(true)} className="underline-offset-4 hover:text-white hover:underline">How does this work?</button>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">

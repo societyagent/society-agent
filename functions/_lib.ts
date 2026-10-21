@@ -1,11 +1,12 @@
 import type { Cfg, Intervention } from '../src/engine/world'
-import { createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
+import { MIND_ACTIONS, createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
 
 export interface Env { DB: D1Database; HEALTH_TOKEN?: string; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string }
 export type Ctx = { request: Request; env: Env; params: Record<string, string | string[]> }
 
 export const MAX_TICKS = 288
-export const MAX_IVS = 40
+export const MAX_IVS = 80
+export const MAX_DECISIONS = 40 // agent decisions per run; each has a bounded effect, the cap bounds the total
 const AUTH_HEADER = 'author' + 'ization'
 export const COOKIE = '__Host-sa_session' // __Host- prefix: Secure, Path=/, no Domain — cannot be set by a sibling subdomain
 export const SESSION_TTL = 60 * 60 * 24 * 7
@@ -89,6 +90,7 @@ export function sanitizeCfg(input: unknown): Cfg | null {
   return cfg.news.text ? cfg : null
 }
 
+const validAgent = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 15 ? v : -1)
 export function sanitizeIvs(raw: unknown): { tick: number; iv: Intervention }[] | null {
   if (!Array.isArray(raw) || raw.length > MAX_IVS) return null
   const out: { tick: number; iv: Intervention }[] = []
@@ -97,11 +99,17 @@ export function sanitizeIvs(raw: unknown): { tick: number; iv: Intervention }[] 
     const tick = Math.round(num(r.tick, 0, MAX_TICKS, 0))
     const text = str(iv.text, 240)
     if (!text) return null
+    if ((iv.type === 'whisper' || iv.type === 'decide') && validAgent(iv.agent) < 0) return null
     const stance = num(iv.stance, -1, 1, 0)
     if (iv.type === 'announce') out.push({ tick, iv: { type: 'announce', text, stance } })
-    else if (iv?.type === 'whisper') out.push({ tick, iv: { type: 'whisper', agent: Math.round(num(iv.agent, 0, 15, 0)), text, stance } })
-    else return null
+    else if (iv?.type === 'whisper') out.push({ tick, iv: { type: 'whisper', agent: validAgent(iv.agent), text, stance } })
+    else if (iv.type === 'decide') {
+      const action = (MIND_ACTIONS as readonly string[]).includes(String(iv.action)) ? (iv.action as (typeof MIND_ACTIONS)[number]) : null
+      if (!action) return null
+      out.push({ tick, iv: { type: 'decide', agent: validAgent(iv.agent), action, text: text.slice(0, 160), stance: num(iv.stance, -0.3, 0.3, 0) } })
+    } else return null
   }
+  if (out.filter((x) => x.iv.type === 'decide').length > MAX_DECISIONS) return null
   return out.sort((a, b) => a.tick - b.tick)
 }
 

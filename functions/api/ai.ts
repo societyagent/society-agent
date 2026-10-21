@@ -1,4 +1,4 @@
-import { personaOf } from '../../src/engine/world'
+import { MIND_ACTIONS, personaOf } from '../../src/engine/world'
 import { allow, clientIp, fail, json, readJson, sessionAddress, type Ctx } from '../_lib'
 
 // Any OpenAI-compatible endpoint works. Configure with env: AI_BASE_URL, AI_API_KEY, AI_MODEL (and optionally AI_FALLBACK_MODEL).
@@ -6,6 +6,7 @@ import { allow, clientIp, fail, json, readJson, sessionAddress, type Ctx } from 
 const ATTEMPT_MS = 22000
 
 const clean = (v: unknown, max: number) => (typeof v === 'string' ? [...v].map((ch) => (ch.charCodeAt(0) < 32 ? ' ' : ch)).join('').replace(/\s+/g, ' ').trim().slice(0, max) : '')
+const validId = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 15 ? v : -1)
 const num = (v: unknown, lo: number, hi: number, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d)
 const label = (o: number) => (o > 0.5 ? 'alarmed' : o > 0.15 ? 'worried' : o > -0.15 ? 'neutral' : 'skeptical')
 const first = (n: string) => n.split(' ')[0]
@@ -74,7 +75,7 @@ export const onRequestPost = async (ctx: Ctx) => {
   /* ── Voices: natural lines for a batch of news-bearing conversations ── */
   if (body.kind === 'voices') {
     const items = (Array.isArray(body.items) ? body.items : []).slice(0, 6).map((raw: unknown, i: number) => { const it = rec(raw); return {
-      i, speaker: Math.round(num(it.speaker, 0, 15, -1)), listener: Math.round(num(it.listener, 0, 15, -1)), stance: clean(it.stance, 12) || 'neutral', place: clean(it.place, 24),
+      i, speaker: validId(it.speaker), listener: validId(it.listener), stance: clean(it.stance, 12) || 'neutral', place: clean(it.place, 24),
     } }).filter((it) => personaOf(it.speaker) && personaOf(it.listener) && it.speaker !== it.listener)
     const news = clean(body.news, 240)
     if (!items.length || !news) return fail(400, 'Nothing to voice')
@@ -87,6 +88,29 @@ export const onRequestPost = async (ctx: Ctx) => {
       const lines = arr.filter((x) => Number.isInteger(x?.i) && typeof x?.line === 'string' && items.some((it) => it.i === x.i)).map((x) => ({ i: x.i, line: clean(x.line, 180) })).filter((x) => x.line)
       return lines.length ? json({ lines }) : fail(502, 'Voices unavailable right now')
     } catch { return fail(502, 'Voices unavailable right now') }
+  }
+
+  /* ── Minds: residents decide what to do next. The reply is validated here and RECORDED by the client as a run input; the engine never calls a model. ── */
+  if (body.kind === 'decide') {
+    const news = clean(body.news, 240)
+    const items = (Array.isArray(body.items) ? body.items : []).slice(0, 3).map((raw: unknown, i: number) => {
+      const it = rec(raw)
+      return { i, agent: validId(it.agent), place: clean(it.place, 24), feeling: num(it.feeling, -1, 1), near: Math.round(num(it.near, 0, 15, 0)), from: clean(it.from, 40), memory: (Array.isArray(it.memory) ? it.memory : []).slice(0, 4).map((m: unknown) => clean(m, 140)).filter(Boolean) }
+    }).filter((it) => personaOf(it.agent))
+    if (!news || !items.length) return fail(400, 'Nothing to decide')
+    const system = 'You play residents of a small town in an agent-based simulation. After hearing the news, each resident chooses ONE action: "warn" (urge others to take it seriously), "reassure" (calm others down), "verify" (go check facts before spreading anything), or "stay_quiet". Choose what THIS person would plausibly do given their personality, trust in others, current feeling and memories. Then write what they say in first person, in character, under 140 characters, plain language, no hashtags, no new facts beyond the news. "shift" is how their own feeling changes, from -0.3 (calmer) to 0.3 (more alarmed). Reply with ONLY a JSON array: [{"i":0,"action":"warn","say":"...","shift":0.1}, ...] with no commentary.'
+    const user = `NEWS everyone is reacting to: "${news}"\n\nRESIDENTS:\n` + items.map((it) => `${it.i}. ${personaBlock(it.agent)} Currently feels ${label(it.feeling)} (${it.feeling.toFixed(2)}).${it.place ? ` At ${it.place}.` : ''} ${it.near} people nearby.${it.from ? ` Heard it from ${it.from}.` : ''}${it.memory.length ? ` Remembers: ${it.memory.join(' | ')}` : ''}`).join('\n')
+    const out = await llm(ctx, system, user, 500, 0.8)
+    if (!out) return fail(502, 'Minds unavailable right now')
+    try {
+      const arr = JSON.parse(out.slice(out.indexOf('['), out.lastIndexOf(']') + 1)) as unknown[]
+      const decisions = arr.map((x) => rec(x)).filter((x) => Number.isInteger(x.i) && items.some((it) => it.i === x.i) && (MIND_ACTIONS as readonly string[]).includes(String(x.action))).map((x) => {
+        const it = items.find((q) => q.i === x.i)!
+        const action = String(x.action)
+        return { agent: it.agent, action, say: action === 'stay_quiet' ? '' : clean(x.say, 160), shift: Math.round(num(x.shift, -0.3, 0.3) * 100) / 100 }
+      }).filter((d) => d.action === 'stay_quiet' || d.say)
+      return decisions.length ? json({ decisions }) : fail(502, 'Minds unavailable right now')
+    } catch { return fail(502, 'Minds unavailable right now') }
   }
 
   /* ── Analysis: a grounded written read of what happened ── */

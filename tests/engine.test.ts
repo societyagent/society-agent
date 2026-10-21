@@ -101,7 +101,73 @@ test('input sanitising: bounds, control characters and unknown types', () => {
   assert.equal(sanitizeCfg({ news: { text: '' } }), null)
   assert.equal(sanitizeCfg(null), null); assert.equal(sanitizeCfg('x'), null)
   assert.equal(sanitizeIvs([{ tick: 1, iv: { type: 'nuke', text: 'x' } }]), null)
-  assert.equal(sanitizeIvs(Array(41).fill({ tick: 1, iv: { type: 'announce', text: 'x' } })), null)
+  assert.equal(sanitizeIvs(Array(81).fill({ tick: 1, iv: { type: 'announce', text: 'x' } })), null) // MAX_IVS = 80
   assert.equal(sanitizeIvs([{ tick: 1, iv: { type: 'announce', text: '' } }]), null)
   assert.equal(sanitizeIvs('nope'), null)
+})
+
+/* ───────── agent minds: LLM decisions are recorded inputs; the engine stays deterministic ───────── */
+const decide = (agent: number, action: 'warn' | 'reassure' | 'verify' | 'stay_quiet', stance = 0.2, text = 'Please be careful.') => ({ type: 'decide' as const, agent, action, text, stance })
+const runWith = (cfg: Cfg, ticks: number, ivs: { tick: number; iv: ReturnType<typeof decide> }[]) => {
+  const st = createState(cfg), metrics: Metric[] = [], events: Ev[] = []; let i = 0
+  for (let t = 0; t < ticks; t++) { while (i < ivs.length && ivs[i].tick <= st.tick) events.push(...intervene(st, ivs[i++].iv)); const r = stepWorld(st); metrics.push(r.metric); events.push(...r.events) }
+  return { st, metrics, events }
+}
+const firstInformed = (cfg: Cfg) => { const st = createState(cfg); while (!st.agents.some((a) => a.informed) && st.tick < 140) stepWorld(st); return { tick: st.tick, id: st.agents.find((a) => a.informed)!.id } }
+
+test('minds: the same recorded decisions replay to a byte-identical run', () => {
+  const cfg = water(), f = firstInformed(cfg)
+  const ivs = [{ tick: f.tick + 6, iv: decide(f.id, 'warn', 0.25) }, { tick: f.tick + 20, iv: decide(f.id, 'reassure', -0.2) }]
+  assert.equal(JSON.stringify(runWith(cfg, 96, ivs).metrics), JSON.stringify(runWith(cfg, 96, ivs).metrics))
+})
+
+test('minds: a decision from someone who has not heard the news does nothing', () => {
+  const cfg = water(), st = createState(cfg), before = JSON.stringify(st.agents.map((a) => a.opinion))
+  const evs = intervene(st, decide(0, 'warn', 0.3))
+  assert.equal(evs.length, 0); assert.equal(JSON.stringify(st.agents.map((a) => a.opinion)), before)
+})
+
+test('minds: warning raises alarm and reassuring lowers it, relative to the same run without the decision', () => {
+  const cfg = water(), f = firstInformed(cfg), at = f.tick + 10
+  const base = runWith(cfg, 96, []).metrics.at(-1)!.mean
+  const warned = runWith(cfg, 96, [{ tick: at, iv: decide(f.id, 'warn', 0.3, 'This is serious.') }]).metrics.at(-1)!.mean
+  const calmed = runWith(cfg, 96, [{ tick: at, iv: decide(f.id, 'reassure', -0.3, 'It will be fine.') }]).metrics.at(-1)!.mean
+  assert.ok(warned > base, `warn ${warned} should exceed baseline ${base}`)
+  assert.ok(calmed < base, `reassure ${calmed} should be below baseline ${base}`)
+})
+
+test('minds: a decision is bounded — even a hostile stance cannot move opinions more than a small, fixed amount', () => {
+  const cfg = water(), f = firstInformed(cfg), st = createState(cfg)
+  while (st.tick < f.tick + 8) stepWorld(st)
+  const speaker = st.agents[f.id], before = st.agents.map((a) => a.opinion)
+  intervene(st, decide(f.id, 'warn', 99, 'x'.repeat(500)))
+  for (const a of st.agents) { const d = Math.abs(a.opinion - before[a.id]); assert.ok(d <= (a.id === speaker.id ? 0.31 : 0.3), `agent ${a.id} moved ${d}`); assert.ok(a.opinion >= -1 && a.opinion <= 1) }
+})
+
+test('minds: staying quiet changes no one else', () => {
+  const cfg = water(), f = firstInformed(cfg), st = createState(cfg)
+  while (st.tick < f.tick + 8) stepWorld(st)
+  const others = st.agents.filter((a) => a.id !== f.id).map((a) => a.opinion)
+  intervene(st, decide(f.id, 'stay_quiet', 0))
+  assert.equal(JSON.stringify(st.agents.filter((a) => a.id !== f.id).map((a) => a.opinion)), JSON.stringify(others))
+})
+
+test('minds: the server validates decisions strictly (unknown action, bad agent, quota)', () => {
+  assert.equal(sanitizeIvs([{ tick: 3, iv: { type: 'decide', agent: 2, action: 'detonate', text: 'x', stance: 0.1 } }]), null)
+  assert.equal(sanitizeIvs([{ tick: 3, iv: { type: 'decide', agent: 99, action: 'warn', text: 'x', stance: 0.1 } }]), null, 'a non-existent resident is rejected, not clamped onto a real one')
+  assert.equal(sanitizeIvs([{ tick: 3, iv: { type: 'whisper', agent: -1, text: 'x', stance: 0.1 } }]), null)
+  assert.equal(sanitizeIvs([{ tick: 3, iv: { type: 'decide', agent: 1.5, action: 'warn', text: 'x', stance: 0.1 } }]), null)
+  const ok = sanitizeIvs([{ tick: 3, iv: { type: 'decide', agent: 15, action: 'warn', text: 'y'.repeat(900), stance: 5 } }])!
+  assert.equal(ok.length, 1)
+  const d = ok[0].iv as ReturnType<typeof decide>
+  assert.equal(d.agent, 15); assert.ok(d.text.length <= 160); assert.equal(d.stance, 0.3)
+  assert.equal(sanitizeIvs(Array.from({ length: 41 }, () => ({ tick: 1, iv: { type: 'decide', agent: 1, action: 'warn', text: 'x', stance: 0.1 } }))), null)
+})
+
+test('minds: server replay with decisions equals client replay (saved runs stay unforgeable)', () => {
+  const cfg = water(), f = firstInformed(cfg)
+  const raw = [{ tick: f.tick + 5, iv: decide(f.id, 'warn', 0.2, 'Stay alert.') }, { tick: f.tick + 18, iv: decide(f.id, 'verify', 0, 'Let me check.') }]
+  const client = runWith(cfg, 96, raw)
+  const server = simulate(sanitizeCfg(JSON.parse(JSON.stringify(cfg)))!, 96, sanitizeIvs(raw)!)
+  assert.equal(JSON.stringify(server.metrics), JSON.stringify(client.metrics))
 })
