@@ -136,19 +136,19 @@ export function DarkLanding() {
       </nav>
     </header>
 
-    <section id="top" className="relative overflow-hidden px-5 pb-20 pt-28 md:px-8 md:pt-36">
+    <section id="top" className="relative overflow-hidden px-5 pb-20 pt-24 md:px-8 md:pt-28">
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 70% 50% at 85% -5%, rgba(255,140,70,.22), transparent 65%), radial-gradient(ellipse 50% 40% at 0% 30%, rgba(126,224,176,.07), transparent 70%)' }} />
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[.35]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)', backgroundSize: '64px 64px', maskImage: 'linear-gradient(to bottom, black, transparent 70%)' }} />
       <div className="relative mx-auto max-w-6xl">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><Eyebrow>An agent-based society simulator</Eyebrow></motion.div>
-        <motion.h1 initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, ease }} className="font-display mt-5 text-[clamp(3.1rem,9vw,7.4rem)] font-normal leading-[.92] tracking-[-.03em]">Drop news into a town.<br /><em className="text-[#ff9a62]">Watch it decide</em> what to believe.</motion.h1>
-        <motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, delay: .1, ease }} className="mt-7 max-w-2xl text-lg leading-relaxed text-white/60">Residents with jobs, habits, memories and different levels of trust walk the same streets, talk, and change their minds. You decide what the town hears — and read exactly what happened.</motion.p>
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, delay: .2, ease }} className="mt-8 flex flex-wrap items-center gap-3">
+        <motion.h1 initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, ease }} className="font-display mt-5 text-[clamp(2.7rem,6.4vw,5.6rem)] font-normal leading-[.95] tracking-[-.03em]">Drop news into a town.<br /><em className="text-[#ff9a62]">Watch it decide</em> what to believe.</motion.h1>
+        <motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, delay: .1, ease }} className="mt-5 max-w-2xl text-base leading-relaxed text-white/60 md:text-lg">Residents with jobs, habits, memories and different levels of trust walk the same streets, talk, and change their minds. You decide what the town hears — and read exactly what happened.</motion.p>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, delay: .2, ease }} className="mt-6 flex flex-wrap items-center gap-3">
           <Link to="/app" className="inline-flex items-center gap-2 rounded-full bg-[#ff9a62] px-7 py-4 text-[15px] font-semibold text-[#1a0f08] transition hover:bg-[#ffb185]">Run a simulation <ArrowRight size={17} /></Link>
           <a href="#compare" className="rounded-full border border-white/15 px-6 py-4 text-[15px] text-white/80 transition hover:border-white/40">See an experiment</a>
           <span className="text-sm text-white/40">No sign-up needed.</span>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: .3, ease }} className="mt-14"><LiveTown /></motion.div>
+        <motion.div initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: .3, ease }} className="mt-9"><LiveTown /></motion.div>
       </div>
     </section>
 
