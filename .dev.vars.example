@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local `wrangler pages dev`; set the same names as Pages secrets in production.
+# Any OpenAI-compatible /chat/completions endpoint works (hosted or self-hosted).
+AI_BASE_URL=https://your-llm-endpoint.example/v1
+AI_API_KEY=replace-me
+AI_MODEL=your-model-id
+# Optional: tried if the first model errors or times out
+AI_FALLBACK_MODEL=
