@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { Portrait } from '@/components/Portrait'
+import { Ring, Spark } from '@/components/Spark'
+import { phaseOf } from '@/components/sprites'
 import { BrainCircuit, Bookmark, Check, Copy, Download, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { api, useAuth } from '@/lib/auth'
@@ -211,7 +214,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0">
           {tour && <Tour onClose={closeTour} />}
-          <p className="mb-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/75" aria-live="polite">{narrate(s, events, done, s.tick > 0, s.agents.length)}</p>
+          <p className="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/75" aria-live="polite"><span className="hidden shrink-0 rounded-full border border-white/12 bg-white/[.05] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[.16em] text-ember-200/90 sm:inline">{{ morning: 'Morning', day: 'Daytime', evening: 'Evening', night: 'Night' }[phaseOf(s.tick)]}</span><span>{narrate(s, events, done, s.tick > 0, s.agents.length)}</span></p>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 rounded-xl border border-white/[.08] bg-white/[.02] px-3 py-2 text-xs text-white/60">
             <div role="group" aria-label="Map colouring" className="flex overflow-hidden rounded-lg border border-white/10">{(['opinion', 'informed'] as const).map((m) => <button key={m} onClick={() => setMode(m)} aria-pressed={mode === m} className={`tap-auto px-3 py-1.5 transition ${mode === m ? 'bg-white/15 text-white' : 'hover:text-white'}`}>{m === 'opinion' ? 'Colour: opinion' : 'Colour: who knows'}</button>)}</div>
             <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -241,7 +244,18 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
               : <button onClick={auth.signIn} className="tap inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 transition hover:border-white/25 hover:text-white"><Mic size={13} /> Sign in for AI voices &amp; minds</button>}
             {voiceNote && <span className="text-amber-200/85">{voiceNote}</span>}{mindNote && <span className="text-amber-200/85">{mindNote}</span>}</div>}
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[['Heard the news', `${Math.round((last?.informed ?? 0) * 100)}%`, `of ${s.agents.length} residents`], [`Avg. opinion`, last ? `${last.mean.toFixed(2)} · ${stanceLabel(last.mean)}` : '—', `${cfg.axis[0]} −1 … +1 ${cfg.axis[1]}`], ['Disagreement', last ? last.spread.toFixed(2) : '—', '0 = everyone agrees'], ['Conversations', String(last?.talks ?? 0), 'so far today']].map(([k, v, h]) => <div key={k} className="rounded-xl border border-white/10 bg-white/[.025] p-4"><p className="text-xs text-white/55">{k}</p><p className="mt-1 text-xl tabular-nums">{v}</p><p className="mt-1 text-[11px] leading-snug text-white/55">{h}</p></div>)}
+            {([
+              ['Heard the news', `${Math.round((last?.informed ?? 0) * 100)}%`, `of ${s.agents.length} residents`, metrics.map((m) => m.informed), '#ffb98a', <Ring key="r" pct={(last?.informed ?? 0) * 100} />],
+              ['Avg. opinion', last ? `${last.mean.toFixed(2)} · ${stanceLabel(last.mean)}` : '—', `${cfg.axis[0]} ← → ${cfg.axis[1]}`, metrics.map((m) => m.mean), '#8fd3ff', null],
+              ['Disagreement', last ? last.spread.toFixed(2) : '—', '0 = everyone agrees', metrics.map((m) => m.spread), '#c9a7ff', null],
+              ['Conversations', String(last?.talks ?? 0), 'so far today', metrics.map((m) => m.talks), '#8ee0a8', null],
+            ] as [string, string, string, number[], string, React.ReactNode][]).map(([k, v, h, series, col, extra]) => <div key={k} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[.05] to-white/[.015] p-4 transition hover:border-white/20">
+              <span aria-hidden className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${col}88, transparent)` }} />
+              <div className="flex items-start justify-between gap-2"><p className="text-xs text-white/60">{k}</p>{extra}</div>
+              <p className="mt-1 text-[22px] leading-tight tabular-nums">{v}</p>
+              <p className="mt-1 truncate text-[11px] leading-snug text-white/55" title={h}>{h}</p>
+              <Spark values={series} color={col} />
+            </div>)}
           </div>
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[.025] p-4"><Chart metrics={metrics} axis={cfg.axis} /></div>
 
@@ -272,7 +286,10 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
         <aside className="space-y-4">
           <section className="rounded-2xl border border-white/10 bg-white/[.025] p-4">
             {agent ? <div>
-              <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full text-sm font-semibold text-black" style={{ background: agent.color }}>{agent.name[0]}</span><div><p className="font-medium">{agent.name}</p><p className="text-xs text-white/55">{agent.age} · {agent.role}</p></div></div>
+              <div className="flex items-center gap-3.5"><Portrait id={agent.id} size={60} color={agent.color} /><div className="min-w-0"><p className="font-display truncate text-2xl leading-none">{agent.name}</p><p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-white/60"><span className="rounded-full border border-white/12 bg-white/[.05] px-2 py-0.5 capitalize">{agent.role}</span><span>{agent.age} years old</span></p></div></div>
+              <div className="mt-4"><div className="flex items-center justify-between text-[11px] text-white/60"><span>{cfg.axis[0]}</span><span className="text-white/45">{agent.informed ? stanceLabel(agent.opinion) : 'hasn’t heard yet'}</span><span>{cfg.axis[1]}</span></div>
+                <div role="img" aria-label={agent.informed ? `Opinion ${agent.opinion.toFixed(2)} on a scale from ${cfg.axis[0]} to ${cfg.axis[1]}` : 'Has not heard the news yet'} className="relative mt-1.5 h-2 rounded-full" style={{ background: 'linear-gradient(90deg,#78c896,#8d93a8 50%,#ef5a46)' }}>
+                  {agent.informed ? <span className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#0c0b0a] shadow-[0_0_0_3px_rgba(255,255,255,.12)] transition-[left] duration-500" style={{ left: `${((Math.max(-1, Math.min(1, agent.opinion)) + 1) / 2) * 100}%` }} /> : <span className="absolute inset-0 rounded-full bg-[#0c0b0a]/70" />}</div></div>
               <p className="mt-3 text-sm leading-relaxed text-white/60">{agent.bio}</p>
               <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-lg bg-black/30 p-2"><dt className="text-white/55">Now</dt><dd className="mt-0.5 text-white/80">{agent.goal}</dd></div>
