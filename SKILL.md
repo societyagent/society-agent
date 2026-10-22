@@ -50,6 +50,22 @@ Use the `terminal` tool or an HTTP client. The public endpoint stores nothing, d
 }
 ```
 
+## Comparing options (use this before claiming one move beats another)
+
+One run is an anecdote. `POST https://societyagent.fun/api/agent/compare` runs 2–4 options in the same random towns and tests the difference.
+
+```json
+{ "template": "water", "n": 20, "outcome": "final",
+  "conds": [ { "label": "Do nothing", "kind": "none" },
+             { "label": "Official statement", "kind": "announce", "text": "Water will be restored by 6pm.", "hour": 12, "stance": -0.6 } ] }
+```
+
+Read `findings[].clear` and `headline`. If it is not clear, say the options cannot be told apart from chance. It is bounded to 60 simulated days per call and counts against the hourly limit.
+
+## As an MCP server
+
+`npx -y @societyagent/mcp` gives your agent `society_status`, `society_simulate` and `society_compare` (see `mcp/README.md`). Every tool is read-only; none accepts a URL, header or secret.
+
 ## Interpretation
 
 - Compare runs using the same config and seed; change only the intervention.

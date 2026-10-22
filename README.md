@@ -48,7 +48,7 @@ The full manual lives in the app at **`/docs`** (quick start, concepts, the math
 
 ## For agents
 
-Agents can read [`SKILL.md`](SKILL.md), then discover the live contract at [`/api/agent/capabilities`](https://societyagent.fun/api/agent/capabilities), [`/openapi.json`](https://societyagent.fun/openapi.json), and [`/llms.txt`](https://societyagent.fun/llms.txt). The public `POST /api/agent/simulate` endpoint runs one bounded deterministic simulation without storing it, calling a model, or accepting wallet secrets.
+Agents can read [`SKILL.md`](SKILL.md), then discover the live contract at [`/api/agent/capabilities`](https://societyagent.fun/api/agent/capabilities), [`/openapi.json`](https://societyagent.fun/openapi.json), and [`/llms.txt`](https://societyagent.fun/llms.txt). The public `POST /api/agent/simulate` endpoint runs one bounded deterministic simulation, and `POST /api/agent/compare` tests 2–4 options in the same random towns with a paired test; neither stores anything, calls a model, or accepts wallet secrets. `mcp/` packages both as an MCP server (`npx -y @societyagent/mcp`).
 
 ## Run it locally
 
@@ -86,7 +86,8 @@ npx tsx tests/lab-ui.ts <url>     # the lab in a real browser (also: ui, docs-ui
 | `src/docs/` | The documentation site |
 | `functions/` | Cloudflare Pages Functions: auth, runs, AI layer, health, monitoring |
 | `d1/migrations/` | Database schema |
-| `ops/` | Scheduled worker: uptime probes and error alerts |
+| `ops/` | Scheduled worker: uptime probes, error alerts, quota and abuse alerts |
+| `mcp/` | MCP server (`@societyagent/mcp`): simulate and compare, read-only |
 | `tests/` | Unit tests and live suites |
 
 ## Roadmap

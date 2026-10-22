@@ -7,6 +7,7 @@ import { BrainCircuit, Bookmark, Check, Copy, Download, FileText, Megaphone, Mes
 import { Town } from '@/components/Town'
 import { api, useAuth } from '@/lib/auth'
 import { AppShell } from '@/components/AppShell'
+import { LOCAL_RUN_KEY } from '@/pages/RunReport'
 import { LIMITS } from '@/engine/limits'
 import { MIND_ACTIONS, layoutOf, personaOf, placeName, clock, dayClock, summarize, type Cfg, type Ev, type Intervention, type Metric, type State } from '@/engine/world'
 import { buildCfg, townName } from '@/engine/templates'
@@ -275,7 +276,9 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
               <button onClick={exportJson} disabled={!metrics.length} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 hover:text-white disabled:opacity-40"><Download size={14} /> JSON</button>
               <button onClick={exportCsv} disabled={!metrics.length} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 hover:text-white disabled:opacity-40"><Download size={14} /> CSV</button>
               {!replay && (auth.session ? <button onClick={save} disabled={!metrics.length || !!saved} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:opacity-40"><Bookmark size={14} /> {saved ? 'Saved' : 'Save run'}</button> : <button onClick={auth.signIn} disabled={auth.busy} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black"><Wallet size={14} /> {auth.busy ? 'Waiting…' : 'Sign in to save'}</button>)}
-              {(saved || replay) && <Link to={`${replay && !replay.isOwner ? '/r' : '/app/runs'}/${saved?.id ?? replay?.id}/report`} className="inline-flex items-center gap-1.5 rounded-lg border border-ember-300/40 bg-ember-300/10 px-3 py-2 text-sm text-ember-100 hover:bg-ember-300/15"><FileText size={14} /> Report</Link>}
+              {(saved || replay)
+                ? <Link to={`${replay && !replay.isOwner ? '/r' : '/app/runs'}/${saved?.id ?? replay?.id}/report`} className="inline-flex items-center gap-1.5 rounded-lg border border-ember-300/40 bg-ember-300/10 px-3 py-2 text-sm text-ember-100 hover:bg-ember-300/15"><FileText size={14} /> Report</Link>
+                : <button onClick={() => { sessionStorage.setItem(LOCAL_RUN_KEY, JSON.stringify({ cfg, ticks: Math.max(12, s.tick), interventions: ivs })); nav('/app/report') }} disabled={!metrics.length} className="inline-flex items-center gap-1.5 rounded-lg border border-ember-300/40 bg-ember-300/10 px-3 py-2 text-sm text-ember-100 hover:bg-ember-300/15 disabled:opacity-40"><FileText size={14} /> Report</button>}
               {saved && (replay ? replay.isOwner : true) && <button onClick={share} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 hover:text-white"><Share2 size={14} /> {saved.shared ? 'Stop sharing' : 'Create share link'}</button>}
             </div>
             {saved?.shared && <div className="mt-3 flex items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-white/70"><span className="truncate">{link}</span><button onClick={() => { navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500) }} className="ml-auto shrink-0 text-ember-200">{copied ? 'Copied' : <Copy size={14} />}</button></div>}

@@ -1,0 +1,15 @@
+{
+  "name": "@societyagent/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Society Agent: simulate how news spreads through an invented town and test whether an intervention makes a clear difference. Read-only, no keys, no wallet.",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": { "society-agent-mcp": "src/index.js" },
+  "files": ["src", "README.md"],
+  "scripts": { "start": "node src/index.js", "test": "node test/mcp.test.mjs" },
+  "engines": { "node": ">=20.19" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/societyagent/society-agent.git", "directory": "mcp" },
+  "keywords": ["mcp", "simulation", "agents", "agent-based-model", "society"],
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.32.1", "zod": "^4.6.7" }
+}

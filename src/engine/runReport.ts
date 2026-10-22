@@ -70,6 +70,6 @@ export function buildRunDoc(a: { cfg: Cfg; ticks: number; interventions: { tick:
 export function runMarkdown(d: RunDoc): string {
   const L: string[] = [`# ${d.title}`, '', `> ${d.question}`, '', `**The news:** “${d.news}”`, '', '## Findings', '', ...d.findings.map((f) => `- ${f}`), '', '## At a glance', '', '| | |', '|---|---|', ...d.facts.map((f) => `| ${f.label} | ${f.value} |`), '', '## What was done', '', ...d.moves.map((m) => `- ${m}`), '', '## Key moments', '', ...d.timeline.map((t) => `- **${t.clock}** — ${t.text}`)]
   if (d.voices.length) L.push('', '## What residents said', '', ...d.voices.map((v) => `- **${v.clock}** (${v.stance}) — ${v.text}`))
-  L.push('', '## How to read this', '', ...d.notes.map((n) => `- ${n}`), '', `[Open this run](${d.link})`, '')
+  L.push('', '## How to read this', '', ...d.notes.map((n) => `- ${n}`), '', ...(d.link ? [`[Open this run](${d.link})`, ''] : ['_Made from a run that was not saved._', '']))
   return L.join('\n')
 }

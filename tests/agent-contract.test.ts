@@ -9,7 +9,7 @@ test('agent discovery exposes only the real public agent contract', async () => 
   const body = await res.json() as { protocol: string; custody: string; tools: { name: string; path: string }[] }
   assert.equal(body.protocol, 'society-agent/v1')
   assert.equal(body.custody, 'none')
-  assert.deepEqual(body.tools.map((tool) => [tool.name, tool.path]), [['simulate_town', '/api/agent/simulate'], ['health', '/api/health']])
+  assert.deepEqual(body.tools.map((tool) => [tool.name, tool.path]), [['simulate_town', '/api/agent/simulate'], ['compare_options', '/api/agent/compare'], ['health', '/api/health']])
 })
 
 test('OpenAPI and llms references expose no secret-taking operation', async () => {

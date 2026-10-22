@@ -25,6 +25,7 @@ export const LIMITS = {
     clientError: { limit: 20, windowSec: 600, per: 'network address' },
   },
   ai: { mindCallsPerRun: 12, residentsPerMindCall: 3, linesPerVoicesCall: 6, historyTurns: 4, memoryItems: 8 },
+  agentCompare: { maxSimulatedDays: 60, minTowns: 10, maxTowns: 30 },
   lab: { maxSimulatedDays: 600, minTowns: 10, maxTowns: 200, maxOptions: 4 },
   town: { minResidents: 6, maxResidents: 16 },
 } as const

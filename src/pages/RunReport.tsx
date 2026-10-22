@@ -29,19 +29,30 @@ function Lines({ doc }: { doc: RunDoc }) {
 }
 
 /** A shareable, printable write-up of one saved run. Light "paper" theme so it prints cleanly. */
-export function RunReport() {
+export const LOCAL_RUN_KEY = 'sa-local-run'
+
+/** A run that was never saved: the simulation page hands it over in sessionStorage, so a report needs no wallet and no server. */
+function readLocal(): RunData | null {
+  try {
+    const raw = sessionStorage.getItem(LOCAL_RUN_KEY); if (!raw) return null
+    const j = JSON.parse(raw) as Partial<RunData>
+    return j.cfg && typeof j.ticks === 'number' ? { id: 'local', name: j.cfg.name, cfg: j.cfg, interventions: j.interventions ?? [], ticks: j.ticks, shared: false, isOwner: true } : null
+  } catch { return null }
+}
+
+export function RunReport({ local = false }: { local?: boolean }) {
   const { id } = useParams()
   const auth = useAuth()
-  const [data, setData] = useState<RunData | null>(null)
-  const [err, setErr] = useState('')
+  const [data, setData] = useState<RunData | null>(() => (local ? readLocal() : null))
+  const [err, setErr] = useState(local && !readLocal() ? 'Open a simulation, press Report, and the report for that run appears here.' : '')
   const [copied, setCopied] = useState(false)
-  useEffect(() => { api<RunData>(`/api/runs/${id}`).then(setData).catch((e) => setErr(e.status === 404 ? 'This run does not exist or is not shared.' : e.message)) }, [id, auth.session])
+  useEffect(() => { if (local) return; api<RunData>(`/api/runs/${id}`).then(setData).catch((e) => setErr(e.status === 404 ? 'This run does not exist or is not shared.' : e.message)) }, [id, auth.session, local])
 
   const doc = useMemo(() => {
     if (!data) return null
     const r = replayRun(data.cfg, data.ticks, data.interventions)
-    return buildRunDoc({ cfg: data.cfg, ticks: data.ticks, interventions: data.interventions, ...r, link: `${location.origin}/${data.isOwner ? 'app/runs' : 'r'}/${data.id}` })
-  }, [data])
+    return buildRunDoc({ cfg: data.cfg, ticks: data.ticks, interventions: data.interventions, ...r, link: local ? '' : `${location.origin}/${data.isOwner ? 'app/runs' : 'r'}/${data.id}` })
+  }, [data, local])
 
   if (err) return <main className="min-h-screen bg-[#0c0b0a] px-6 py-16 text-white"><div className="mx-auto max-w-xl"><h1 className="text-2xl">This report is not available</h1><p className="mt-3 text-white/60">{err}</p><Link to="/app" className="mt-6 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black">Start your own simulation</Link></div></main>
   const copy = async () => { try { await navigator.clipboard.writeText(location.href) } catch { /* clipboard blocked */ } setCopied(true); setTimeout(() => setCopied(false), 1800) }
@@ -50,9 +61,9 @@ export function RunReport() {
   return <main className="report min-h-screen bg-[#e9e4da] text-[#1c1814] print:bg-white">
     <style>{`@media print { .no-print { display: none !important } .report { background: #fff !important } .sheet { box-shadow: none !important; margin: 0 !important; max-width: none !important; border: 0 !important; padding: 0 !important } .avoid { break-inside: avoid } @page { margin: 16mm } }`}</style>
     <div className="no-print sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-black/10 bg-[#e9e4da]/90 px-4 py-3 backdrop-blur md:px-8">
-      <Link to={id ? `/app/runs/${id}` : '/app'} className="tap inline-flex items-center gap-2 text-sm text-black/60 hover:text-black"><ArrowLeft size={15} /> Back to the run</Link>
+      <Link to={local ? '/app/sim' : id ? `/app/runs/${id}` : '/app'} className="tap inline-flex items-center gap-2 text-sm text-black/60 hover:text-black"><ArrowLeft size={15} /> Back to the run</Link>
       <div className="flex flex-wrap gap-2">
-        <button onClick={copy} className={btn}>{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Link copied' : 'Copy report link'}</button>
+        {!local && <button onClick={copy} className={btn}>{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Link copied' : 'Copy report link'}</button>}
         <button disabled={!doc} onClick={() => doc && download(`${doc.title.replace(/\W+/g, '-').toLowerCase()}-report.md`, 'text/markdown', runMarkdown(doc))} className={btn}><Download size={14} /> Markdown</button>
         <button disabled={!doc} onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1c1814] px-3.5 py-2 text-sm font-medium text-white disabled:opacity-40"><Printer size={14} /> Print / save as PDF</button>
       </div>
@@ -89,7 +100,7 @@ export function RunReport() {
 
         <section className="avoid mt-10 border-t border-black/15 pt-6"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">How to read this</h2>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-black/60">{doc.notes.map((n) => <li key={n}>{n}</li>)}</ul>
-          <p className="mt-5 hidden break-all font-mono text-[10px] text-black/62 print:block">{doc.link}</p></section>
+          {doc.link ? <p className="mt-5 hidden break-all font-mono text-[10px] text-black/62 print:block">{doc.link}</p> : <p className="mt-5 text-xs text-black/62">This report was made from a run that has not been saved. Save the run to get a link that rebuilds it.</p>}</section>
       </>}
     </article>
   </main>

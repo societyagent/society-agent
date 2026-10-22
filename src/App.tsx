@@ -19,6 +19,7 @@ export default function App() {
     <Route path="/app/lab/report" element={<Report />} />
     <Route path="/app/runs" element={<MyRuns />} />
     <Route path="/app/runs/:id" element={<RunView />} />
+    <Route path="/app/report" element={<RunReport local />} />
     <Route path="/app/runs/:id/report" element={<RunReport />} />
     <Route path="/r/:id/report" element={<RunReport />} />
     <Route path="/r/:id" element={<RunView />} />

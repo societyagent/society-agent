@@ -1,5 +1,7 @@
 // Cron worker: uptime probe, error alerting, and daily restore-point bookkeeping for the Society Agent D1 database.
 // Secrets (wrangler secret put): ALERT_WEBHOOK (optional, any https endpoint that accepts JSON), HEALTH_TOKEN (to read /api/ops/summary).
+import { abuseAlerts, dueAlerts, quotaAlerts, type LimitRow } from './alerts'
+
 export interface Env {
   DB: D1Database
   TARGET: string
@@ -37,6 +39,20 @@ async function errorWatch(env: Env) {
   if ((row?.n ?? 0) >= 5) await alert(env, `Society Agent: ${row!.n} server errors (${row!.kinds} kinds) in the last 15 minutes`)
 }
 
+async function pressureWatch(env: Env) {
+  const now = Math.floor(Date.now() / 1000)
+  const rows = (await env.DB.prepare('SELECT k, count, window_start FROM rate_limits WHERE window_start > ?').bind(now - 3600).all<LimitRow>()).results
+  const candidates = [...quotaAlerts(rows, now), ...abuseAlerts(rows, now)]
+  if (!candidates.length) return
+  // remember what was already sent in the audit table (event 'alert_sent', target = the alert key), so a 15-minute cron does not repeat itself
+  const sent = (await env.DB.prepare("SELECT target, MAX(at) AS at FROM audit WHERE event = 'alert_sent' AND at > ? GROUP BY target").bind(now - 24 * 3600).all<{ target: string; at: number }>()).results
+  const lastSent = Object.fromEntries(sent.map((r) => [r.target, r.at]))
+  for (const a of dueAlerts(candidates, lastSent, now)) {
+    await alert(env, a.text)
+    await env.DB.prepare("INSERT INTO audit (at, event, actor, target) VALUES (?, 'alert_sent', 'ops', ?)").bind(now, a.key.slice(0, 64)).run()
+  }
+}
+
 async function restorePoint(env: Env) {
   // Time Travel keeps 30 days of point-in-time history automatically; record today's bookmark-equivalent timestamp so a restore target is easy to pick.
   const now = Math.floor(Date.now() / 1000)
@@ -46,7 +62,7 @@ async function restorePoint(env: Env) {
 export default {
   async scheduled(ev: ScheduledEvent, env: Env) {
     if (ev.cron === '17 3 * * *') { await restorePoint(env); return }
-    await probe(env); await errorWatch(env)
+    await probe(env); await errorWatch(env); await pressureWatch(env)
   },
   async fetch() { return new Response('society-agent-ops: scheduled worker', { status: 200 }) },
 }
