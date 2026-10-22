@@ -54,7 +54,7 @@
   "license": "MIT",
   "description": "Open-source agent-based town simulation: residents react to news, and an experiment lab tells you what really changes the outcome.",
   "overrides": {
-    "ox": "$ox"
+    "ox": "^0.14.56"
   },
   "repository": {
     "type": "git",
