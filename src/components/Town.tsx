@@ -39,8 +39,8 @@ const hash = (x: number, y: number) => { let h = (x * 374761393 + y * 668265263)
 
 /** Colour wash for the hour: [hour, r, g, b, alpha]. Dawn is rose, noon is clear, dusk is amber then violet, night is deep blue. */
 const KEYS: [number, number, number, number, number][] = [
-  [0, 10, 14, 54, 0.42], [5, 12, 16, 58, 0.4], [6.5, 255, 150, 96, 0.16], [8, 255, 198, 132, 0.07], [10, 255, 255, 255, 0],
-  [16, 255, 255, 255, 0], [17.5, 255, 156, 84, 0.12], [19, 218, 92, 76, 0.17], [20.5, 36, 32, 100, 0.3], [22, 10, 14, 54, 0.4], [24, 10, 14, 54, 0.42],
+  [0, 10, 14, 54, 0.42], [5, 12, 16, 58, 0.4], [6.5, 255, 146, 92, 0.24], [8, 255, 190, 124, 0.1], [10, 255, 255, 255, 0],
+  [16, 255, 255, 255, 0], [17.2, 255, 168, 88, 0.17], [18.4, 255, 128, 70, 0.27], [19.4, 214, 84, 86, 0.28], [20.6, 40, 34, 108, 0.32], [22, 10, 14, 54, 0.4], [24, 10, 14, 54, 0.42],
 ]
 function tintAt(h: number): [number, number, number, number] {
   for (let i = 0; i < KEYS.length - 1; i++) {
@@ -50,7 +50,7 @@ function tintAt(h: number): [number, number, number, number] {
   return [10, 14, 54, 0.42]
 }
 /** 0 in daylight, 1 once it is properly dark. Lamps and windows follow it. */
-const lightsOn = (h: number) => (h >= 18.5 ? Math.min(1, (h - 18.5) / 2) : h < 7 ? Math.min(1, (7 - h) / 1.5) : 0)
+const lightsOn = (h: number) => (h >= 17.8 ? Math.min(1, (h - 17.8) / 1.7) : h < 7.2 ? Math.min(1, (7.2 - h) / 1.4) : 0)
 
 interface Built { canvas: HTMLCanvasElement; lamps: { x: number; y: number }[]; windows: { x: number; y: number; lit: boolean }[] }
 
@@ -189,7 +189,7 @@ function buildStatic(img: HTMLImageElement, cell: number, L: Layout): Built {
 const makeGlow = (cell: number) => {
   const s = Math.ceil(cell * 7), c = document.createElement('canvas'); c.width = c.height = s
   const g = c.getContext('2d')!, gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2)
-  gr.addColorStop(0, 'rgba(255,208,128,.62)'); gr.addColorStop(0.35, 'rgba(255,182,92,.24)'); gr.addColorStop(1, 'rgba(255,170,80,0)')
+  gr.addColorStop(0, 'rgba(255,212,132,.74)'); gr.addColorStop(0.35, 'rgba(255,186,96,.3)'); gr.addColorStop(1, 'rgba(255,170,80,0)')
   g.fillStyle = gr; g.fillRect(0, 0, s, s); return c
 }
 const makeVignette = (w: number, h: number) => {

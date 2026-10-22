@@ -17,6 +17,8 @@
 
 ---
 
+**Live:** [societyagent.fun](https://societyagent.fun) · [App](https://societyagent.fun/app) · [Docs](https://societyagent.fun/docs)
+
 ## What it is
 
 A small invented town. At 07:20 a piece of news breaks and two residents hear it first. Everyone then walks the streets, meets people and talks, and the news moves from person to person, changing minds as it goes. You can watch it, step in with an announcement or a whisper, interview any resident, and read a plain-language account of what happened.
