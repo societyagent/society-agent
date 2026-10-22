@@ -20,7 +20,11 @@ jobs:
         run: npm audit --audit-level=high
       - name: Production build
         run: npm run build
-        env: { VITE_REOWN_PROJECT_ID: ${{ vars.VITE_REOWN_PROJECT_ID }} }
-      - name: No secrets or vendor names in the client bundle
+        env:
+          VITE_REOWN_PROJECT_ID: ${{ vars.VITE_REOWN_PROJECT_ID }}
+      - name: No secret values or provider names in the client bundle
+        # Variable NAMES are public documentation. A VALUE, a key-shaped string, a private key or a provider name must never ship.
         run: |
-          ! grep -rIE "sk-[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY|AI_API_KEY" dist
+          if grep -rIEi "sk-[A-Za-z0-9]{20,}|(AI_API_KEY|HEALTH_TOKEN|ALERT_WEBHOOK)[\"']?[[:space:]]*[:=][[:space:]]*[\"'\`][^\"'\`[:space:]]{8,}|BEGIN [A-Z ]*PRIVATE KEY|anthropic|openai|deepseek" dist; then
+            echo "::error::a secret value or provider name is present in the client bundle"; exit 1
+          fi
