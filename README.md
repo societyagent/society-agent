@@ -46,6 +46,10 @@ The simulation, the lab and reports need **no account and no language model**. M
 
 The full manual lives in the app at **`/docs`** (quick start, concepts, the maths, every screen, the HTTP API, self-hosting, operations, security, FAQ). Several pages are generated from the code (limits, towns, street plans, endpoints, the cast), and a test fails if they drift.
 
+## For agents
+
+Agents can read [`SKILL.md`](SKILL.md), then discover the live contract at [`/api/agent/capabilities`](https://societyagent.fun/api/agent/capabilities), [`/openapi.json`](https://societyagent.fun/openapi.json), and [`/llms.txt`](https://societyagent.fun/llms.txt). The public `POST /api/agent/simulate` endpoint runs one bounded deterministic simulation without storing it, calling a model, or accepting wallet secrets.
+
 ## Run it locally
 
 ```bash

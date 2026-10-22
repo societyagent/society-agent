@@ -11,6 +11,10 @@ export interface EndpointDoc {
 }
 
 export const ENDPOINTS: EndpointDoc[] = [
+  { method: 'GET', path: '/api/agent/capabilities', file: 'functions/api/agent/capabilities.ts', who: 'public',
+    summary: 'Machine-readable discovery for external agents. Lists only live, non-custodial tools and links to OpenAPI and llms.txt.', ok: '200 { "protocol": "society-agent/v1", "tools": […] }', errors: [] },
+  { method: 'POST', path: '/api/agent/simulate', file: 'functions/api/agent/simulate.ts', who: 'public',
+    summary: 'Run a bounded deterministic town simulation without saving it or calling an AI model. The result is a model of an invented town, not a forecast.', body: '{ "cfg": { … }, "ticks": 12…144, "interventions": [] }', ok: '200 { "cfg", "ticks", "interventions", "result": { "final", "report", "metrics", "events" } }', errors: ['400 invalid scenario or interventions', '429 per-network or deployment-wide agent simulation limit reached'] },
   { method: 'POST', path: '/api/auth/challenge', file: 'functions/api/auth/challenge.ts', who: 'public',
     summary: 'Ask for a sign-in message (EIP-4361, single use, 5 minutes). Signing it is free: no gas, no transaction.',
     body: '{ "address": "0x…", "chainId": 1 }', ok: '200 { "id": "…", "message": "…" }', errors: ['400 invalid address or chain id', '429 too many attempts from this network'] },

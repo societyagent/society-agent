@@ -20,6 +20,8 @@ export const LIMITS = {
     aiWallet: { limit: 80, windowSec: 3600, per: 'wallet' },
     aiNetwork: { limit: 120, windowSec: 3600, per: 'network address' },
     aiGlobal: { limit: 300, windowSec: 3600, per: 'deployment' },
+    agentSimNetwork: { limit: 30, windowSec: 3600, per: 'network address' },
+    agentSimGlobal: { limit: 240, windowSec: 3600, per: 'deployment' },
     clientError: { limit: 20, windowSec: 600, per: 'network address' },
   },
   ai: { mindCallsPerRun: 12, residentsPerMindCall: 3, linesPerVoicesCall: 6, historyTurns: 4, memoryItems: 8 },
