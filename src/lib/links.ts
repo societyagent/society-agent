@@ -8,5 +8,5 @@ export const LINKS = {
   license: 'https://github.com/societyagent/society-agent/blob/main/LICENSE',
   issues: 'https://github.com/societyagent/society-agent/issues',
   security: 'https://github.com/societyagent/society-agent/security/advisories/new',
-  x: '',
+  x: 'https://x.com/SocietyAgent_',
 } as const
