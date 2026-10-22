@@ -15,10 +15,48 @@ const text = (n: unknown): string => {
   return text(el.props?.children)
 }
 export interface Hit { page: DocPage; section?: DocPage['sections'][number]; score: number; snippet: string }
-const INDEX = DOC_PAGES.map((p) => { const secs = p.sections.map((s) => ({ s, title: s.title.toLowerCase(), body: text(s.body).replace(/\s+/g, ' ') })); return { page: p, hay: `${p.title} ${p.tagline} ${p.keywords.join(' ')}`.toLowerCase(), secs, all: (p.sections.map((s) => s.title).join(' ') + ' ' + secs.map((x) => x.body).join(' ')).toLowerCase() } })
+const INDEX = DOC_PAGES.map((p) => { const secs = p.sections.map((s) => ({ s, title: s.title.toLowerCase(), body: text(s.body).replace(/\s+/g, ' ') })); return { page: p, hay: `${p.title} ${p.slug} ${p.tagline} ${p.keywords.join(' ')}`.toLowerCase(), secs, all: (p.sections.map((s) => s.title).join(' ') + ' ' + secs.map((x) => x.body).join(' ')).toLowerCase() } })
 const count = (hay: string, t: string) => hay.split(t).length - 1
 
+/** Levenshtein distance, capped: returns max+1 as soon as the words are too different. */
+export function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    let low = i
+    for (let j = 1; j <= b.length; j++) { cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); low = Math.min(low, cur[j]) }
+    if (low > max) return max + 1
+    prev = cur
+  }
+  return prev[b.length]
+}
+
+/** Every word the docs use, so a misspelt query word can be mapped to the nearest real one. */
+const VOCAB = Array.from(new Set(INDEX.flatMap((i) => `${i.page.slug} ${i.hay} ${i.all}`.match(/[a-z][a-z0-9-]{3,}/g) ?? [])))
+const fixed = new Map<string, string>()
+/** One typo is forgiven in words of 4-7 letters, two in longer ones; the nearest real word wins, ties go to the shorter one. */
+export function correct(term: string): string {
+  if (term.length < 4) return term
+  const hit = fixed.get(term)
+  if (hit) return hit
+  if (VOCAB.includes(term)) { fixed.set(term, term); return term }
+  const max = term.length > 7 ? 2 : 1
+  let best = term, bestD = max + 1
+  for (const w of VOCAB) { const d = editDistance(term, w, max); if (d <= max && (d < bestD || (d === bestD && w.length < best.length))) { best = w; bestD = d } }
+  fixed.set(term, best)
+  return best
+}
+
 export function searchDocs(q: string): Hit[] {
+  const hits = rank(q)
+  if (hits.length) return hits
+  // nothing matched: retry once with each word replaced by the closest real word (so "reproducability" finds Reproducibility)
+  const fixedQ = q.toLowerCase().split(/\s+/).map(correct).join(' ')
+  return fixedQ === q.toLowerCase().trim().replace(/\s+/g, ' ') ? [] : rank(fixedQ)
+}
+
+function rank(q: string): Hit[] {
   const all = q.toLowerCase().split(/\s+/).filter((t) => t.length > 1)
   // two-letter words ("in", "to") match almost every page; ignore them unless they are all the user typed
   const terms = all.some((t) => t.length > 2) ? all.filter((t) => t.length > 2) : all
