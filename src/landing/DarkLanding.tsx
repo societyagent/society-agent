@@ -39,7 +39,7 @@ function ContractAddress() {
     <span className="shrink-0 rounded-md bg-[#ff9a62]/15 px-2 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.2em] text-[#ffb185]">CA</span>
     {ca
       ? <><code className="min-w-0 break-all font-mono text-[13px] text-white/85">{ca}</code>
-        <button onClick={copy} aria-label={copied ? 'Contract address copied' : 'Copy contract address'} className="tap grid min-w-11 place-items-center rounded-lg text-white/70 transition hover:bg-white/[.07] hover:text-white">{copied ? <Check size={15} /> : <Copy size={15} />}</button></>
+        <button onClick={copy} aria-label={copied ? 'Contract address copied' : 'Copy contract address'} className="tap -my-1 -mr-1.5 inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 text-white/70 transition hover:border-white/25 hover:bg-white/[.07] hover:text-white">{copied ? <Check size={15} /> : <Copy size={15} />}</button></>
       : <span className="inline-flex items-center gap-2.5 whitespace-nowrap text-[15px] text-white/80"><span aria-hidden className="relative grid size-2.5 shrink-0 place-items-center"><span className="absolute inline-flex size-full animate-ping rounded-full bg-[#ff9a62]/60" /><span className="relative size-2 rounded-full bg-[#ff9a62]" /></span>Coming soon<span aria-hidden className="hidden text-white/40 sm:inline">·</span><span className="hidden text-white/50 sm:inline">launching on Robinhood Chain</span></span>}
   </div>
 }
