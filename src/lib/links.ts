@@ -9,4 +9,6 @@ export const LINKS = {
   issues: 'https://github.com/societyagent/society-agent/issues',
   security: 'https://github.com/societyagent/society-agent/security/advisories/new',
   x: 'https://x.com/SocietyAgent_',
+  /** Token contract address on Robinhood Chain. Empty until launch: the landing shows a "coming soon" badge, and the full copyable address once this is set. */
+  ca: '',
 } as const

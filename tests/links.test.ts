@@ -34,3 +34,11 @@ test('no hard-coded repository URL outside LINKS and metadata (one place to chan
 test('external links open safely (noopener) wherever they are rendered with target=_blank', () => {
   for (const f of walk(join(ROOT, 'src')).filter((f) => f.endsWith('.tsx'))) for (const m of readFileSync(f, 'utf8').matchAll(/<a [^>]*target="_blank"[^>]*>/g)) assert.match(m[0], /rel="noopener noreferrer"/, `${f.slice(ROOT.length)}: ${m[0].slice(0, 80)}`)
 })
+
+test('the contract address is either empty ("coming soon") or a full 0x address, and the landing never hard-codes one', () => {
+  assert.ok(LINKS.ca === '' || /^0x[0-9a-fA-F]{40}$/.test(LINKS.ca), `LINKS.ca must be empty or a 42-character 0x address, got ${LINKS.ca}`)
+  const src = readFileSync(join(ROOT, 'src/landing/DarkLanding.tsx'), 'utf8')
+  assert.doesNotMatch(src, /0x[0-9a-fA-F]{40}/, 'the address lives only in src/lib/links.ts')
+  assert.match(src, /LINKS\.ca/); assert.match(src, /Coming soon/); assert.match(src, /Copy contract address/)
+  assert.doesNotMatch(src, /LINKS\.ca\.(slice|substring|substr)|\.\.\.\$\{LINKS\.ca/, 'the address is shown in full, never shortened')
+})

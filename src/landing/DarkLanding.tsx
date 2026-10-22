@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { GithubMark, XMark } from '@/components/Marks'
 import { LINKS } from '@/lib/links'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Check, Copy } from 'lucide-react'
 import { Town } from '@/components/Town'
 import { createState, dayClock, intervene, personaOf, stepWorld, type Metric } from '@/engine/world'
 import { useSim } from '@/engine/useSim'
@@ -27,6 +27,23 @@ function Sprite({ id, size = 64 }: { id: number; size?: number }) {
 }
 
 /* ───────── hero: the real engine, running ───────── */
+/**
+ * The token contract address on Robinhood Chain. Until LINKS.ca is set it shows a designed "coming soon" badge; after launch the same slot
+ * shows the full address (never shortened, so it can be verified by eye) with a copy button. One place to change: src/lib/links.ts.
+ */
+function ContractAddress() {
+  const [copied, setCopied] = useState(false), timer = useRef<number | undefined>(undefined)
+  const ca = LINKS.ca
+  const copy = async () => { try { await navigator.clipboard.writeText(ca) } catch { /* clipboard blocked */ } setCopied(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setCopied(false), 1800) }
+  return <div data-testid="contract-address" className="mt-5 inline-flex max-w-full items-center gap-x-3 rounded-2xl border border-white/10 bg-white/[.03] px-3.5 py-2.5 sm:px-4 shadow-[inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur">
+    <span className="shrink-0 rounded-md bg-[#ff9a62]/15 px-2 py-1 font-mono text-[11px] font-semibold uppercase tracking-[.2em] text-[#ffb185]">CA</span>
+    {ca
+      ? <><code className="min-w-0 break-all font-mono text-[13px] text-white/85">{ca}</code>
+        <button onClick={copy} aria-label={copied ? 'Contract address copied' : 'Copy contract address'} className="tap grid min-w-11 place-items-center rounded-lg text-white/70 transition hover:bg-white/[.07] hover:text-white">{copied ? <Check size={15} /> : <Copy size={15} />}</button></>
+      : <span className="inline-flex items-center gap-2.5 whitespace-nowrap text-[15px] text-white/80"><span aria-hidden className="relative grid size-2.5 shrink-0 place-items-center"><span className="absolute inline-flex size-full animate-ping rounded-full bg-[#ff9a62]/60" /><span className="relative size-2 rounded-full bg-[#ff9a62]" /></span>Coming soon<span aria-hidden className="hidden text-white/40 sm:inline">·</span><span className="hidden text-white/50 sm:inline">launching on Robinhood Chain</span></span>}
+  </div>
+}
+
 function LiveTown() {
   const [cfg] = useState(() => buildCfg('water', { seed: SEED, population: 14 }))
   const { sim, snap } = useSim(cfg)
@@ -148,6 +165,7 @@ export function DarkLanding() {
           <a href="#compare" className="rounded-full border border-white/15 px-6 py-4 text-[15px] text-white/80 transition hover:border-white/40">See an experiment</a>
           <span className="text-sm text-white/55">No sign-up needed.</span>
         </motion.div>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, delay: .26, ease }}><ContractAddress /></motion.div>
         <motion.div initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: .3, ease }} className="mt-9"><LiveTown /></motion.div>
       </div>
     </section>
