@@ -10,6 +10,9 @@ import { allow, clientIp, fail, json, readJson, type Ctx } from '../../_lib'
  */
 export const onRequestPost = async (ctx: Ctx) => {
   const body = await readJson<Record<string, unknown>>(ctx.request)
+  // sanitizeExperiment falls back to 'final' for anything it does not know, which is right for a shared lab link but wrong for an agent: asking for
+  // "talks" and silently getting end-of-day opinion looks valid and is not. So an explicit, unknown outcome is an error here.
+  if (body && body.outcome !== undefined && !Object.prototype.hasOwnProperty.call(OUTCOMES, String(body.outcome))) return fail(400, `Unknown outcome "${String(body.outcome).slice(0, 24)}". Use one of: ${Object.keys(OUTCOMES).join(', ')}.`)
   const x = sanitizeExperiment(body)
   if (!x) return fail(400, 'Send {template, conds: 2-4 options, n: towns}. Each option is {kind: none|announce|whisper, label, text, hour, stance}.')
   const cap = LIMITS.agentCompare

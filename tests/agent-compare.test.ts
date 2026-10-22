@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { onRequestPost as compareRoute } from '../functions/api/agent/compare'
 import { onRequestGet as capabilities } from '../functions/api/agent/capabilities'
 import { LIMITS } from '../src/engine/limits'
+import { OUTCOMES } from '../src/engine/lab'
+import { onRequestGet as openapiGet } from '../functions/openapi.json.ts'
 
 /** A tiny fake D1 whose rate_limits table really counts, so the quota behaviour is tested, not assumed. */
 function counterEnv() {
@@ -63,4 +65,34 @@ test('bad input is rejected before any simulation runs', async () => {
 test('agents can discover the comparison tool', async () => {
   const caps = await (await capabilities({ request: new Request('https://societyagent.fun/api/agent/capabilities') } as never)).json() as { tools: { name: string; path: string }[] }
   assert.ok(caps.tools.some((t) => t.name === 'compare_options' && t.path === '/api/agent/compare'))
+})
+
+test('an outcome the engine does not measure is refused, never silently replaced by another measure', async () => {
+  for (const bad of ['talks', 'bogus', 'FINAL', '__proto__', 'constructor', 7, null]) {
+    const res = await call(counterEnv(), exp(12, { outcome: bad }))
+    assert.equal(res.status, 400, `outcome ${JSON.stringify(bad)} must be a 400, got ${res.status}`)
+    const msg = (await res.json() as { error: string }).error
+    assert.match(msg, /final, peak, spread, half/, 'the error names the valid outcomes')
+  }
+})
+
+test('every outcome the engine measures is accepted and is the measure that comes back', async () => {
+  for (const id of Object.keys(OUTCOMES)) {
+    const res = await call(counterEnv(), exp(10, { outcome: id }))
+    assert.equal(res.status, 200, id)
+    assert.equal((await res.json() as { measure: { id: string } }).measure.id, id, `asked for ${id}, got a different measure`)
+  }
+  const omitted = await call(counterEnv(), (() => { const e = exp(10); delete (e as { outcome?: string }).outcome; return e })())
+  assert.equal(omitted.status, 200); assert.equal((await omitted.json() as { measure: { id: string } }).measure.id, 'final', 'leaving it out still means final opinion')
+})
+
+test('the contract advertises exactly the outcomes the engine measures (OpenAPI and the MCP schema)', async () => {
+  const real = Object.keys(OUTCOMES).sort()
+  const spec = await (await openapiGet({ request: new Request('https://societyagent.fun/openapi.json') } as never)).json() as { paths: Record<string, { post?: { requestBody?: { content: Record<string, { schema: { properties: { outcome?: { enum: string[] } } } }> } } }> }
+  const advertised = spec.paths['/api/agent/compare'].post!.requestBody!.content['application/json'].schema.properties.outcome!.enum
+  assert.deepEqual([...advertised].sort(), real, 'OpenAPI promises an outcome the engine cannot measure (or hides one it can)')
+  const mcp = (await import('node:fs')).readFileSync(new URL('../mcp/src/index.js', import.meta.url), 'utf8')
+  const m = /outcome: z\.enum\(\[([^\]]*)\]\)/.exec(mcp)
+  assert.ok(m, 'the MCP compare tool declares an outcome enum')
+  assert.deepEqual(m![1].split(',').map((x) => x.trim().replace(/['"]/g, '')).sort(), real, 'the MCP schema promises an outcome the engine cannot measure')
 })

@@ -107,9 +107,15 @@ let pass = 0; const ok = (n) => { pass++; console.log('  ✓', n) }
     assert.ok(!jump.findings.some((f) => /everyone knew after/.test(f) && /Half the town knew (\d+\.\d) simulated hours.*everyone knew after \1 hours/.test(f)), 'no duplicated "5.7 / 5.7" sentence')
     const cmp = JSON.parse((await rpc(6, 'tools/call', { name: 'society_compare', arguments: { template: 'water', n: 10, outcome: 'final', conds: [{ label: 'Do nothing', kind: 'none' }, { label: 'Official statement', kind: 'announce', text: 'Water will be restored by 6pm.', hour: 12, stance: -0.6 }] } })).result.content[0].text)
     assert.strictEqual(cmp.towns, 10); assert.strictEqual(cmp.findings.length, 1); assert.ok(typeof cmp.findings[0].headline === 'string')
+    const noTalks = tools.find((t) => t.name === 'society_compare').inputSchema.properties.outcome
+    assert.deepStrictEqual([...noTalks.enum].sort(), ['final', 'half', 'peak', 'spread'], 'the tool offers only outcomes the engine measures')
+    for (const o of ['peak', 'spread', 'half']) {
+      const r = JSON.parse((await rpc(20 + o.length, 'tools/call', { name: 'society_compare', arguments: { template: 'water', n: 10, outcome: o, conds: [{ label: 'Do nothing', kind: 'none' }, { label: 'Official statement', kind: 'announce', text: 'Water will be restored by 6pm.', hour: 12, stance: -0.6 }] } })).result.content[0].text)
+      assert.strictEqual(r.measure.id, o, `asked for ${o}, got ${r.measure.id}`)
+    }
     const bad = (await rpc(7, 'tools/call', { name: 'society_compare', arguments: { template: 'water', conds: [{ label: 'a', kind: 'none' }] } })).result
     assert.ok(bad.isError || /min|too_small|at least/i.test(JSON.stringify(bad)), 'one option is rejected')
-    ok(`live ${LIVE}: status healthy, one run finishes (informed=1, ${sim.findings.length} findings), a 10-town comparison returns a verdict, invalid input rejected`)
+    ok(`live ${LIVE}: status healthy, one run finishes (informed=1, ${sim.findings.length} findings), a 10-town comparison returns a verdict, every offered outcome returns the measure that was asked for, invalid input rejected`)
   } else console.log('  - live checks skipped (set SOCIETY_AGENT_URL to run them)')
   child.kill()
 }

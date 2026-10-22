@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import { createCore, digestRun, loadConfig } from './core.js'
 
-export const VERSION = '0.1.2'
+export const VERSION = '0.1.3'
 
 const STANCE = z.number().min(-1).max(1).describe('-1 calming … +1 alarming')
 const SCENARIO = z.object({
@@ -38,7 +38,7 @@ export function buildServer(cfg = loadConfig(), core = createCore(cfg)) {
     wrap(async (a) => digestRun(await core.simulate(a))))
 
   server.registerTool('society_compare', { title: 'Compare interventions', description: 'Test 2-4 options in the SAME random towns with a paired statistical test. Returns, for each option versus the first, whether the difference is clear or could be chance. Only options are compared against the FIRST one: to test option B against option A directly, put A first. Read the stated size of the change, not just the effect-size word. Use this, not a single run, before claiming one move beats another.',
-    inputSchema: { template: z.enum(['water']).describe('built-in scenario'), conds: z.array(OPTION).min(2).max(4).describe('the first option is the baseline'), n: z.number().int().min(10).max(30).optional().describe('number of random towns'), outcome: z.enum(['final', 'peak', 'spread', 'half', 'talks']).optional().describe('what to measure: final opinion (default), peak, spread, hours until half knew, or conversations') }, annotations: RO },
+    inputSchema: { template: z.enum(['water']).describe('built-in scenario'), conds: z.array(OPTION).min(2).max(4).describe('the first option is the baseline'), n: z.number().int().min(10).max(30).optional().describe('number of random towns'), outcome: z.enum(['final', 'peak', 'spread', 'half']).optional().describe('what to measure: final opinion (default), peak opinion, spread (disagreement), or half (hours until half the town knew)') }, annotations: RO },
     wrap(async (a) => { const r = await core.compare(a); return { measure: r.measure, towns: r.towns, simulatedDays: r.simulatedDays, rows: r.rows, findings: r.findings, notes: r.notes } }))
 
   server.registerResource('safety', 'society://safety', { title: 'Safety model', description: 'What this server can and cannot do', mimeType: 'text/plain' }, async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'text/plain', text: SAFETY_TEXT }] }))

@@ -8,7 +8,8 @@ export const onRequestGet = async (ctx: Ctx) => {
     name: 'Society Agent',
     version: '1.0',
     custody: 'none',
-    auth: 'none for simulation; wallet session required only for saved runs and AI',
+    auth: 'none: these tools need no login, key or wallet',
+    webAppOnly: 'Saved runs and AI voices exist only in the web app and need a wallet sign-in there. They are not part of these tools.',
     openapi: `${origin}/openapi.json`,
     llms: `${origin}/llms.txt`,
     tools: [

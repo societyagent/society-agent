@@ -9,6 +9,7 @@ test('agent discovery exposes only the real public agent contract', async () => 
   const body = await res.json() as { protocol: string; custody: string; tools: { name: string; path: string }[] }
   assert.equal(body.protocol, 'society-agent/v1')
   assert.equal(body.custody, 'none')
+  assert.match((body as unknown as { auth: string }).auth, /no login, key or wallet/, 'the agent tools must not suggest a wallet is needed')
   assert.deepEqual(body.tools.map((tool) => [tool.name, tool.path]), [['simulate_town', '/api/agent/simulate'], ['compare_options', '/api/agent/compare'], ['health', '/api/health']])
 })
 
