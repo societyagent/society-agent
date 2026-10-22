@@ -139,7 +139,13 @@ export function verdict(label: string, base: string, p: Pair, o: OutcomeDef, axi
   const bounded = o.id === 'final' || o.id === 'peak'
   const same = p.delta < 0 ? p.lower : p.higher, opposite = p.delta < 0 ? p.higher : p.lower, tied = p.n - p.lower - p.higher
   const split = [opposite ? `the other way in ${opposite}` : '', tied ? `no change in ${tied}` : ''].filter(Boolean).join(', ')
-  if (!p.clear) return { tone: 'none', headline: `${label}: no clear difference from “${base}”.`, detail: `Average change ${p.delta >= 0 ? '+' : '−'}${amt} (95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)}). With ${p.n} towns the data cannot separate this from chance.` }
+  if (!p.clear) {
+    const ciText = `95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)}`, change = `Average change ${p.delta >= 0 ? '+' : '−'}${amt}`
+    // Two different reasons for "not clear", and they must not be described the same way. If the range excludes zero the change is real; it is
+    // simply smaller than the least difference we count as meaningful for this measure. Saying "could be chance" there would be false.
+    if (p.n > 1 && (p.ci[0] > 0 || p.ci[1] < 0)) return { tone: 'none', headline: `${label}: a real but very small difference from “${base}”, not a clear one.`, detail: `${change} (${ciText}). The range excludes zero, so this is not chance, but it is below the ${o.minMeaningful.toFixed(o.digits)}${o.unit} we count as a meaningful difference for this measure, so we do not call it clear.` }
+    return { tone: 'none', headline: `${label}: no clear difference from “${base}”.`, detail: `${change} (${ciText}). With ${p.n} towns the data cannot separate this from chance.` }
+  }
   return { tone: 'clear', headline: `${label}: ${dir} than “${base}” by ${amt}.`, detail: `Same direction in ${same} of ${p.n} towns${split ? ` (${split})` : ''} · 95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)} · ${p.size} effect size (how consistent the change is from town to town, not how big it is)${bounded ? `. The change is ${amt} on a scale that runs from −1 to +1` : ''}.` }
 }
 

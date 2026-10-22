@@ -102,3 +102,23 @@ test('verdict wording is honest about ties and opposite outcomes', () => {
   const clean = verdict('Option', 'Base', { n: 60, delta: -0.1, ci: [-0.12, -0.11], lower: 60, higher: 0, dz: -3, clear: true, size: 'large' }, OUTCOMES.final, ['Calm', 'Alarmed'])
   assert.doesNotMatch(clean.detail, /other way|no change/)
 })
+
+test('"not clear" is explained by its real reason: chance, or a change too small to count (never "chance" for a real small one)', () => {
+  const axis = ['Calm', 'Alarmed']
+  // range includes zero: genuinely cannot be told from chance
+  const chance = verdict('Option', 'Base', { n: 20, delta: -0.003, ci: [-0.01, 0.004], lower: 11, higher: 9, dz: -0.1, clear: false, size: 'negligible' }, OUTCOMES.peak, axis)
+  assert.equal(chance.tone, 'none'); assert.match(chance.headline, /no clear difference/); assert.match(chance.detail, /cannot separate this from chance/)
+  // range excludes zero but below the meaningful size: real, small, and the text must say so
+  const small = verdict('Option', 'Base', { n: 20, delta: -0.0177, ci: [-0.028, -0.007], lower: 17, higher: 3, dz: -0.7, clear: false, size: 'moderate' }, OUTCOMES.spread, axis)
+  assert.equal(small.tone, 'none'); assert.match(small.headline, /real but very small/)
+  assert.match(small.detail, /excludes zero/); assert.match(small.detail, /not chance/); assert.match(small.detail, /0\.02/)
+  assert.doesNotMatch(small.detail, /cannot separate this from chance/, 'a real small change must never be called chance')
+})
+
+test('the real spread comparison (a noon statement, 20 towns) is the small-but-real case, and says so', async () => {
+  const x = defaultExperiment('water'); x.n = 20; x.outcome = 'spread'
+  const b = await runBatch(x); assert.ok(b)
+  const o = OUTCOMES.spread, p = compare(valuesOf(b!.results[1], o.id), valuesOf(b!.results[0], o.id), o.minMeaningful)
+  assert.ok(p.ci[1] < 0, 'the range excludes zero'); assert.ok(!p.clear, 'but it is under the meaningful size')
+  assert.match(verdict('Statement', 'Do nothing', p, o, ['Calm', 'Alarmed']).detail, /not chance/)
+})
