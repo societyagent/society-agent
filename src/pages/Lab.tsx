@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Check, ChevronRight, Copy, Download, FileText, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { LAYOUT_META, RESIDENT_LIMIT, ROLES, personaOf, type LayoutId, type ResidentTweak } from '@/engine/world'
@@ -30,7 +30,7 @@ export function Lab() {
   const [hover, setHover] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [linkErr] = useState(() => !!params.get('x') && !fromLink)
-  const cancel = useRef(0), started = useRef(false)
+  const cancel = useRef(0)
   const t = TEMPLATES.find((q) => q.id === x.template)!
   const axis: [string, string] = (batch ? batch.x.custom?.axis : x.custom?.axis) ?? t.axis
   const total = x.n * x.conds.length
@@ -42,7 +42,7 @@ export function Lab() {
     const b = await runBatch(exp, (done, tot) => { if (id === cancel.current) setProg({ done, total: tot }) }, () => id !== cancel.current)
     if (b && id === cancel.current) { setBatch(b); setProg(null); void t0 }
   }, [])
-  useEffect(() => { if (fromLink && !started.current) { started.current = true; void run(fromLink) } }, [fromLink, run])
+
 
   const patch = (p: Partial<Experiment>) => { edited.current = true; setX((o) => ({ ...o, ...p })) }
   const patchCond = (i: number, p: Partial<Condition>) => patch({ conds: x.conds.map((c, k) => (k === i ? { ...c, ...p } : c)) })

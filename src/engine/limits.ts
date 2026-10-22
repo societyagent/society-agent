@@ -15,6 +15,8 @@ export const LIMITS = {
     challenge: { limit: 20, windowSec: 300, per: 'network address' },
     verify: { limit: 30, windowSec: 300, per: 'network address' },
     saveRun: { limit: 40, windowSec: 3600, per: 'wallet' },
+    saveRunNetwork: { limit: 80, windowSec: 3600, per: 'network address' },
+    saveRunGlobal: { limit: 1200, windowSec: 3600, per: 'deployment' },
     aiWallet: { limit: 80, windowSec: 3600, per: 'wallet' },
     aiNetwork: { limit: 120, windowSec: 3600, per: 'network address' },
     aiGlobal: { limit: 1500, windowSec: 3600, per: 'deployment' },

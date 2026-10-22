@@ -22,11 +22,28 @@ export const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.t
 export async function sha256(text: string) { return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))) }
 export const randomToken = (bytes = 32) => hex(crypto.getRandomValues(new Uint8Array(bytes)).buffer as ArrayBuffer)
 
-/** Parse a JSON body, refusing anything over 200 KB *before* it is read into memory. */
+export const MAX_JSON_BYTES = 200_000
+
+/** Parse a JSON body, refusing anything over 200 KB even when it is chunked. */
 export async function readJson<T = Record<string, unknown>>(request: Request): Promise<T | null> {
   const declared = Number(request.headers.get('content-length') ?? 0)
-  if (declared > 200_000) return null
-  try { const t = await request.text(); if (t.length > 200_000) return null; return JSON.parse(t) as T } catch { return null }
+  if (!Number.isFinite(declared) || declared > MAX_JSON_BYTES) return null
+  const body = request.body
+  if (!body) return null
+  const reader = body.getReader(), chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (true) {
+      const next = await reader.read()
+      if (next.done) break
+      size += next.value.byteLength
+      if (size > MAX_JSON_BYTES) { await reader.cancel(); return null }
+      chunks.push(next.value)
+    }
+    const bytes = new Uint8Array(size); let at = 0
+    for (const chunk of chunks) { bytes.set(chunk, at); at += chunk.byteLength }
+    return JSON.parse(new TextDecoder().decode(bytes)) as T
+  } catch { return null }
 }
 
 /** Fixed-window rate limit in D1. Returns true when the call is allowed. */
@@ -44,7 +61,18 @@ export async function allow(env: Env, key: string, limit: number, windowSec: num
   return (row?.count ?? 1) <= limit
 }
 
-export const clientIp = (r: Request) => r.headers.get('cf-connecting-ip') ?? 'unknown'
+/** Cloudflare's client address, with IPv6 grouped by /64 to prevent rotation bypasses. */
+export function clientIp(r: Request) {
+  const ip = (r.headers.get('cf-connecting-ip') ?? '').trim().toLowerCase()
+  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) return ip
+  if (!/^[0-9a-f:.]+$/.test(ip) || !ip.includes(':')) return 'unknown'
+  const [left, right = ''] = ip.split('::')
+  if (ip.split('::').length > 2) return 'unknown'
+  const head = left ? left.split(':') : [], tail = right ? right.split(':') : []
+  if (head.some((p) => !/^[0-9a-f]{1,4}$/.test(p)) || tail.some((p) => !/^[0-9a-f]{1,4}$/.test(p))) return 'unknown'
+  const groups = [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail]
+  return groups.length === 8 ? `${groups.slice(0, 4).map((p) => p.padStart(4, '0')).join(':')}::/64` : 'unknown'
+}
 
 /** Read the session token from the HttpOnly cookie (browsers) or a bearer header (API clients / tests). */
 export function sessionToken(request: Request): string | null {

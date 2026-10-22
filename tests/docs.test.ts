@@ -44,6 +44,8 @@ test('the quotas the docs print are the quotas the server enforces (one source o
   for (const [f, ref] of pairs) assert.ok(readFileSync(join(ROOT, f), 'utf8').includes(ref), `${f} must read ${ref}`)
   const ai = readFileSync(join(ROOT, 'functions/api/ai.ts'), 'utf8')
   for (const k of ['aiWallet', 'aiNetwork', 'aiGlobal']) assert.ok(ai.includes(`LIMITS.rate.${k}`))
+  const runs = readFileSync(join(ROOT, 'functions/api/runs/index.ts'), 'utf8')
+  for (const k of ['saveRun', 'saveRunNetwork', 'saveRunGlobal']) assert.ok(runs.includes(`LIMITS.rate.${k}`))
   const lib = readFileSync(join(ROOT, 'functions/_lib.ts'), 'utf8')
   for (const k of ['maxTicks', 'maxInterventions', 'maxDecisionsPerRun', 'maxRunsPerOwner', 'sessionTtlSec']) assert.ok(lib.includes(`LIMITS.${k}`), `_lib.ts must read LIMITS.${k}`)
   // no bare numeric literal left in an allow(...) call
