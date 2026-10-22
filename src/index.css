@@ -46,7 +46,8 @@ canvas:focus-visible { outline-offset: -2px; }
   header a:not(.hidden):not(.block), nav a:not(.hidden):not(.block), footer a:not(.hidden):not(.block), .tap:not(.hidden):not(.block) { display: inline-flex; align-items: center; }
   button { min-width: 44px; }
   /* running text: do not stretch a sentence's link into a block */
-  p a, li a, td a, dd a, figcaption a, .prose-link { min-height: 0; display: inline; }
+  /* only links inside a sentence; links that make up a list (footer, sidebar) are navigation and stay full height */
+  p a, td a, dd a, figcaption a, li > a.prose-link, .prose-link { min-height: 0; display: inline; }
   /* keep dense decorative anchors (heading permalinks) out of the tap order on touch */
   h2 > a[aria-label^='Link to'] { display: none; }
 }

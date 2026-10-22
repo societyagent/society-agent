@@ -14,7 +14,7 @@ export const M = ({ children }: { children: ReactNode }) => <code className="rou
 export const B = ({ children }: { children: ReactNode }) => <b className="font-semibold text-white">{children}</b>
 
 /** Link to another docs page (client-side navigation, never a full reload). */
-export const D = ({ to, children }: { to: string; children: ReactNode }) => <Link to={to.startsWith('/') ? to : `/docs/${to}`} className="tap-auto text-ember-200 underline decoration-ember-300/40 underline-offset-4 hover:decoration-ember-300">{children}</Link>
+export const D = ({ to, children }: { to: string; children: ReactNode }) => <Link to={to.startsWith('/') ? to : `/docs/${to}`} className="prose-link text-ember-200 underline decoration-ember-300/40 underline-offset-4 hover:decoration-ember-300">{children}</Link>
 
 export function Code({ children, label }: { children: string; label?: string }) {
   const [done, setDone] = useState(false)
