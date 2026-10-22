@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Docs } from './docs/Docs'
 import { Lab } from './pages/Lab'
 import { Report } from './pages/Report'
+import { RunReport } from './pages/RunReport'
 
 export default function App() {
   return <><ScrollToTop /><Routes>
@@ -18,6 +19,8 @@ export default function App() {
     <Route path="/app/lab/report" element={<Report />} />
     <Route path="/app/runs" element={<MyRuns />} />
     <Route path="/app/runs/:id" element={<RunView />} />
+    <Route path="/app/runs/:id/report" element={<RunReport />} />
+    <Route path="/r/:id/report" element={<RunReport />} />
     <Route path="/r/:id" element={<RunView />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes></>

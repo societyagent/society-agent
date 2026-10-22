@@ -400,25 +400,44 @@ export function intervene(st: State, iv: Intervention): Ev[] {
   return evs
 }
 
+/** How many people each resident directly told the news to, most first. Ties are broken by name so the order is stable. */
+export function spreaderStats(st: State, events: Ev[]): [string, number][] {
+  const m = new Map<string, number>()
+  for (const e of events) if (e.type === 'inform' && e.with !== undefined) { const k = st.agents[e.with]?.name; if (k) m.set(k, (m.get(k) ?? 0) + 1) }
+  return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+}
+
+/**
+ * One convention for time everywhere (report, CSV, event log, Lab): a metric row `tick` N is the state after N steps and is labelled with the
+ * clock at the START of that step (`dayClock(N - 1)`, the same label the events of that step carry). Durations are counted from the moment the
+ * news breaks, exactly as the Experiment Lab counts "hours until half the town knew".
+ */
+export function spreadTiming(metrics: Metric[], startTick: number) {
+  const hoursSince = (m: Metric) => Math.max(0, m.tick - 1 - startTick) / 6
+  const at = (m: Metric | undefined) => (m ? { hours: hoursSince(m), clock: dayClock(m.tick - 1) } : null)
+  return { half: at(metrics.find((m) => m.informed >= 0.5)), all: at(metrics.find((m) => m.informed >= 1)) }
+}
+
 export function summarize(st: State, metrics: Metric[], events: Ev[]) {
   const total = st.agents.length
-  const half = metrics.find((m) => m.informed >= 0.5)
-  const all = metrics.find((m) => m.informed >= 1)
-  const spreaders = new Map<string, number>()
+  const timing = spreadTiming(metrics, st.cfg.news.startTick)
+  const spreaders = spreaderStats(st, events)
   const places = new Map<string, number>()
-  for (const e of events) {
-    if (e.type === 'inform' && e.with !== undefined) { const k = st.agents[e.with]?.name; if (k) spreaders.set(k, (spreaders.get(k) ?? 0) + 1) }
-    if (e.type === 'say' && e.place) places.set(e.place, (places.get(e.place) ?? 0) + 1)
-  }
-  const top = [...spreaders.entries()].sort((a, b) => b[1] - a[1])[0]
-  const topPlace = [...places.entries()].sort((a, b) => b[1] - a[1])[0]
+  for (const e of events) if (e.type === 'say' && e.place) places.set(e.place, (places.get(e.place) ?? 0) + 1)
+  const topPlace = [...places.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]
   const last = metrics[metrics.length - 1]
   const shifts = events.filter((e) => e.type === 'shift').length
   const lines: string[] = []
-  lines.push(`${Math.round((last?.informed ?? 0) * total)} of ${total} residents had heard the news by ${last ? dayClock(last.tick) : 'the start'}.`)
-  if (half) lines.push(`Half the town knew within ${(half.tick * 10 / 60).toFixed(1)} simulated hours${all ? `; everyone knew after ${(all.tick * 10 / 60).toFixed(1)} hours` : ''}.`)
+  lines.push(`${Math.round((last?.informed ?? 0) * total)} of ${total} residents had heard the news by ${last ? dayClock(last.tick - 1) : 'the start'}.`)
+  if (timing.half) lines.push(`Half the town knew ${timing.half.hours.toFixed(1)} simulated hours after the news broke (by ${timing.half.clock})${timing.all ? `; everyone knew after ${timing.all.hours.toFixed(1)} hours` : ''}.`)
   else lines.push('The news had not yet reached half the town.')
-  if (top) lines.push(`${top[0]} was the strongest spreader, directly informing ${top[1]} ${top[1] === 1 ? 'person' : 'people'}.`)
+  if (spreaders.length) {
+    const best = spreaders[0][1], leaders = spreaders.filter(([, n]) => n === best).map(([name]) => name.split(' ')[0])
+    const people = `${best} ${best === 1 ? 'person' : 'people'}`
+    lines.push(leaders.length === 1
+      ? `${spreaders[0][0]} was the strongest spreader, directly informing ${people}.`
+      : `${leaders.slice(0, -1).join(', ')} and ${leaders[leaders.length - 1]} tied as the strongest spreaders, each directly informing ${people}.`)
+  }
   if (topPlace) lines.push(`Most conversation happened at ${placeName(st.cfg.layout, topPlace[0])} (${topPlace[1]} exchanges).`)
   if (last) lines.push(`Average opinion ended at ${last.mean.toFixed(2)} on the ${st.cfg.axis[0]} ↔ ${st.cfg.axis[1]} axis, with spread ${last.spread.toFixed(2)} — ${last.spread > 0.45 ? 'a polarized town' : last.spread > 0.25 ? 'noticeable disagreement' : 'broad agreement'}.`)
   lines.push(`${shifts} opinion shift${shifts === 1 ? '' : 's'} crossed a stance boundary after conversations or interventions.`)

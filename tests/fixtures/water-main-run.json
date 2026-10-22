@@ -1,0 +1,24 @@
+{
+ "cfg": {
+  "name": "Water main break",
+  "question": "How does a local infrastructure failure spread through a town, and who shapes the level of alarm?",
+  "template": "water",
+  "axis": [
+   "Calm",
+   "Alarmed"
+  ],
+  "population": 12,
+  "seed": 549631745,
+  "news": {
+   "text": "A water main broke in the east district and pressure may drop by noon.",
+   "stance": 0.6,
+   "startTick": 2,
+   "seedRoles": [
+    "official",
+    "nurse"
+   ]
+  }
+ },
+ "ticks": 144,
+ "interventions": []
+}
