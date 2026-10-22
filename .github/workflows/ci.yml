@@ -17,7 +17,16 @@ jobs:
       - name: Typecheck, lint, unit tests
         run: npm test
       - name: Dependency audit (production + build tooling)
-        run: npm audit --audit-level=high
+        timeout-minutes: 6
+        # A real finding (exit 1) fails the build. If the advisory service does not answer in time we retry, then warn instead of hanging the pipeline.
+        run: |
+          for attempt in 1 2 3; do
+            set +e; timeout 90 npm audit --audit-level=high; code=$?; set -e
+            if [ "$code" = 0 ]; then echo "audit clean"; exit 0; fi
+            if [ "$code" = 1 ]; then echo "::error::npm audit found vulnerabilities at high severity or above"; exit 1; fi
+            echo "audit attempt $attempt did not finish (exit $code), retrying"; sleep 10
+          done
+          echo "::warning::the npm advisory service did not answer after 3 attempts; audit skipped for this run"
       - name: Production build
         run: npm run build
         env:
