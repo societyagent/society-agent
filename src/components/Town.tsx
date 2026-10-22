@@ -77,6 +77,15 @@ function buildStatic(img: HTMLImageElement, cell: number, L: Layout): Built {
     if (h % 4 === 0) { ctx.fillStyle = 'rgba(20,84,50,.5)'; ctx.fillRect(x * cell + ((h >> 4) & 15) * u * 0.85, y * cell + ((h >> 8) & 15) * u * 0.85, 1.4 * u, 2.4 * u) }
     if (h % 31 === 0) { ctx.fillStyle = ['#fff1a8', '#ffffff', '#ffb3c6'][h % 3]; ctx.fillRect(x * cell + ((h >> 5) & 11) * u + 2 * u, y * cell + ((h >> 9) & 11) * u + 2 * u, 1.6 * u, 1.6 * u) }
   }
+  // large-scale ground structure: soft, wide lights and shades in the same green family (low frequency, so a lawn has regions, not just noise)
+  for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) {
+    if (road(x, y) || side(x, y) || inBuilding(x, y) || inRect(park, x, y)) continue
+    const big = hash(Math.floor(x / 4) + 71, Math.floor(y / 4) + 33) % 7, X = x * cell, Y = y * cell, r = cell * 3.4
+    if (big > 1) continue
+    const gr = ctx.createRadialGradient(X + cell / 2, Y + cell / 2, 0, X + cell / 2, Y + cell / 2, r)
+    if (big === 0) { gr.addColorStop(0, 'rgba(214,255,176,.075)'); gr.addColorStop(1, 'rgba(214,255,176,0)') } else { gr.addColorStop(0, 'rgba(0,56,34,.09)'); gr.addColorStop(1, 'rgba(0,56,34,0)') }
+    ctx.fillStyle = gr; ctx.fillRect(X - r, Y - r, r * 2, r * 2)
+  }
   // kerbs: a dark line on the road side and a pale one just inside the pavement
   for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) {
     if (!side(x, y)) continue
@@ -144,6 +153,34 @@ function buildStatic(img: HTMLImageElement, cell: number, L: Layout): Built {
     for (let r = 0; r < rows; r++) {
       const band = r === 0 ? set.top : r === rows - 1 && rows > 1 ? set.bot : set.mid
       for (let k = 0; k < p.w; k++) tile(band[k === 0 ? 0 : k === p.w - 1 ? 2 : 1], (p.x + k) * cell, (p.y + r) * cell)
+    }
+    // depth: a lit top edge and a shaded eave on the roof block, a ridge line, and a chimney or skylight, so a roof reads as a roof, not a colour patch
+    {
+      const rx = p.x * cell, ry = p.y * cell, rw = p.w * cell, rh = rows * cell, hh = hash(p.x * 7 + 3, p.y * 11 + 5)
+      const lg = ctx.createLinearGradient(0, ry, 0, ry + rh); lg.addColorStop(0, 'rgba(255,244,224,.22)'); lg.addColorStop(0.18, 'rgba(255,244,224,0)'); lg.addColorStop(0.78, 'rgba(20,8,10,0)'); lg.addColorStop(1, 'rgba(20,8,10,.3)')
+      ctx.fillStyle = lg; ctx.fillRect(rx, ry, rw, rh)
+      ctx.fillStyle = 'rgba(255,248,232,.34)'; ctx.fillRect(rx, ry, rw, Math.max(1, u * 0.9))
+      ctx.fillStyle = 'rgba(30,12,12,.34)'; ctx.fillRect(rx, ry + rh - Math.max(1.5, u * 1.4), rw, Math.max(1.5, u * 1.4))
+      if (rows > 1 && p.w > 2) { ctx.fillStyle = 'rgba(30,12,12,.16)'; ctx.fillRect(rx + u, ry + rh * 0.5 - u * 0.3, rw - 2 * u, Math.max(1, u * 0.7)) }
+      const big = p.w >= 5, k = big ? 1.5 : 1.25, cx0 = rx + rw * (0.18 + 0.64 * ((hh % 5) / 4)), cy0 = ry + rh * (big ? 0.2 : 0.14)
+      if (p.kind === 'home' || p.kind === 'food') {
+        // chimney: a brick stack with a dark cap and a soft shadow on the roof
+        const w = u * 3.6 * k, h = u * 4.6 * k
+        ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(cx0 + u * 1.1, cy0 + h * 0.62, w, u * 1.6)
+        ctx.fillStyle = '#7a4a3a'; ctx.fillRect(cx0, cy0, w, h)
+        ctx.fillStyle = '#9b6a58'; ctx.fillRect(cx0, cy0, u * 0.9, h)
+        ctx.fillStyle = 'rgba(40,20,16,.55)'; for (let r2 = 1; r2 < 3; r2++) ctx.fillRect(cx0, cy0 + (h / 3) * r2, w, Math.max(1, u * 0.5))
+        ctx.fillStyle = '#2a1a16'; ctx.fillRect(cx0 - u * 0.5, cy0 - u * 1.2 * k, w + u, u * 1.4 * k)
+        ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(cx0 - u * 0.5, cy0 - u * 1.2 * k, w + u, Math.max(1, u * 0.5))
+      } else {
+        // skylight: a glass pane in a metal frame with a highlight
+        const w = u * 6 * k, h = u * 3.8 * k
+        ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.fillRect(cx0 + u * 1.1, cy0 + u * 1.4, w, h)
+        ctx.fillStyle = '#b4cbdb'; ctx.fillRect(cx0, cy0, w, h)
+        const sg = ctx.createLinearGradient(cx0, cy0, cx0 + w, cy0 + h); sg.addColorStop(0, 'rgba(255,255,255,.55)'); sg.addColorStop(0.45, 'rgba(255,255,255,0)'); ctx.fillStyle = sg; ctx.fillRect(cx0, cy0, w, h)
+        ctx.strokeStyle = '#46586a'; ctx.lineWidth = Math.max(1, u * 0.8); ctx.strokeRect(cx0, cy0, w, h)
+        ctx.beginPath(); ctx.moveTo(cx0 + w / 2, cy0); ctx.lineTo(cx0 + w / 2, cy0 + h); ctx.stroke()
+      }
     }
     const fy = (p.y + p.h - 1) * cell, mid = Math.floor(p.w / 2)
     for (let k = 0; k < p.w; k++) { tile(k === mid ? DOOR : WIN[k % 2], (p.x + k) * cell, fy); if (k !== mid) windows.push({ x: (p.x + k) * cell, y: fy, lit: hash(p.x + k, p.y * 7 + 3) % 3 !== 0 }) }
@@ -242,7 +279,7 @@ export function Town({ agents, selected, mode, onSelect, tick, layout }: TownPro
         const span = cv.width + cell * 24, x = ((sec * cell * 0.9 + (i * span) / 3) % span) - cell * 12, y = cv.height * (0.22 + 0.28 * i) + Math.sin(sec * 0.2 + i) * cell
         const rx = cell * (6 + i * 1.5), ry = rx * 0.5
         ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx)
-        const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rx); gr.addColorStop(0, `rgba(10,22,40,${0.13 * (1 - lights)})`); gr.addColorStop(1, 'rgba(10,22,40,0)')
+        const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rx); gr.addColorStop(0, `rgba(10,22,40,${0.075 * (1 - lights)})`); gr.addColorStop(1, 'rgba(10,22,40,0)')
         ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore()
       }
 
@@ -309,12 +346,38 @@ export function Town({ agents, selected, mode, onSelect, tick, layout }: TownPro
         ctx.beginPath(); ctx.moveTo(x - cell * 0.45, y - flap * cell * 0.2); ctx.lineTo(x, y + cell * 0.12); ctx.lineTo(x + cell * 0.45, y - flap * cell * 0.2); ctx.stroke()
       }
 
+      // sun-cast shadows of the buildings: they swing from west to east across the day and are longest at dawn and dusk (a cosmetic layer over the static map)
+      if (lights < 0.9) {
+        const sunT = Math.max(0, Math.min(1, (hr - 6.5) / 12)), dirX = (sunT - 0.5) * 2.6, len = 0.35 + 1.1 * Math.pow(Math.abs(sunT - 0.5) * 2, 1.5), a = 0.2 * (1 - lights)
+        ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#0a1020'
+        for (const pl of L.places) {
+          if (pl.kind === 'park') continue
+          const x0 = pl.x * cell, x1 = (pl.x + pl.w) * cell, y1 = (pl.y + pl.h) * cell, h = pl.h * cell * 0.55, sx = dirX * len * cell * 1.4
+          ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1 + sx, y1 + h * len * 0.5); ctx.lineTo(x0 + sx, y1 + h * len * 0.5); ctx.closePath(); ctx.fill()
+        }
+        ctx.restore()
+      }
+      // roofs and walls cool and darken after sunset, so the lit windows are the brightest thing in the street
+      if (lights > 0.02) {
+        ctx.save(); ctx.globalAlpha = 0.34 * lights; ctx.fillStyle = '#0b1230'
+        for (const pl of L.places) { if (pl.kind === 'park') continue; ctx.fillRect(pl.x * cell, pl.y * cell, pl.w * cell, (pl.h - 1) * cell) }
+        ctx.restore()
+      }
       // light of the hour, then windows and lamps that glow once it is dark, then a soft vignette
       const [tr, tg, tb, ta] = tintAt(hr)
       if (ta > 0.005) { ctx.fillStyle = `rgba(${Math.round(tr)},${Math.round(tg)},${Math.round(tb)},${ta})`; ctx.fillRect(0, 0, cv.width, cv.height) }
       if (lights > 0.02 && glow) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter'
         for (const w of built.windows) if (w.lit) { ctx.fillStyle = `rgba(255,196,96,${0.55 * lights})`; ctx.fillRect(w.x + cell * 0.2, w.y + cell * 0.22, cell * 0.6, cell * 0.46) }
+        // warm pools of light that fall on the road below the windows, so the glow reaches the street instead of stopping at the glass
+        for (const pl of L.places) {
+          if (pl.kind === 'park') continue
+          const flick = 0.92 + 0.08 * Math.sin(sec * 2.3 + pl.x * 1.7)
+          const gx = (pl.x + pl.w / 2) * cell, gy = (pl.y + pl.h + 0.7) * cell, rw = pl.w * cell * 0.62
+          ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.42)
+          const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rw); gr.addColorStop(0, `rgba(255,190,100,${0.26 * lights * flick})`); gr.addColorStop(1, 'rgba(255,170,80,0)')
+          ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, rw, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+        }
         ctx.globalAlpha = lights
         for (const l of built.lamps) { const lx = (l.x + 0.5) * cell, ly = (l.y + 1) * cell - cell * 1.15; ctx.drawImage(glow, lx - glow.width / 2, ly - glow.height / 2) }
         ctx.restore()
