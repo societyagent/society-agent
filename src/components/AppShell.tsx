@@ -25,7 +25,7 @@ export function AppShell({ children, tone = 'dark' }: { children: ReactNode; ton
         <Link to="/" aria-label="Society Agent home" className="tap flex min-w-11 shrink-0 items-center justify-center gap-2 text-[15px] font-semibold tracking-tight sm:justify-start"><img src="/brand/society-mark.jpg" alt="" className="size-7 rounded-lg" /><span className="hidden sm:inline">society agent</span></Link>
         <nav aria-label="Main" ref={navRef} className="no-scrollbar flex min-w-0 flex-1 snap-x items-center gap-0.5 overflow-x-auto scroll-smooth md:gap-1 [mask-image:linear-gradient(90deg,#000_88%,transparent)] md:[mask-image:none]">
           {items.map((it) => <NavLink key={it.to} to={it.to} end={it.end} aria-current={it.match(pathname) ? 'page' : undefined}
-            className={`relative inline-flex shrink-0 snap-start items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] transition sm:px-3 sm:text-sm ${it.match(pathname) ? 'bg-white/[.08] text-white' : 'text-white/60 hover:bg-white/[.05] hover:text-white'}`}>
+            className={`relative inline-flex shrink-0 snap-start items-center gap-2 rounded-lg min-w-11 px-3 py-2 text-[13.5px] transition sm:px-3 sm:text-sm ${it.match(pathname) ? 'bg-white/[.08] text-white' : 'text-white/60 hover:bg-white/[.05] hover:text-white'}`}>
             <span className="hidden sm:inline">{it.icon}</span><span className="sm:hidden">{it.short}</span><span className="hidden sm:inline">{it.label}</span>
             {it.match(pathname) && <span aria-hidden className="absolute inset-x-3 -bottom-[13px] h-[2px] rounded-full bg-ember-300" />}
           </NavLink>)}

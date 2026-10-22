@@ -35,7 +35,7 @@ export function Report() {
   return <main className="report min-h-screen bg-[#e9e4da] text-[#1c1814] print:bg-white">
     <style>{`@media print { .no-print { display: none !important } .report { background: #fff !important } .sheet { box-shadow: none !important; margin: 0 !important; max-width: none !important; border: 0 !important; padding: 0 !important } .avoid { break-inside: avoid } @page { margin: 16mm } }`}</style>
     <div className="no-print sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-black/10 bg-[#e9e4da]/90 px-4 py-3 backdrop-blur md:px-8">
-      <Link to={`/app/lab?x=${code}`} className="inline-flex items-center gap-2 text-sm text-black/60 hover:text-black"><ArrowLeft size={15} /> Back to the lab</Link>
+      <Link to={`/app/lab?x=${code}`} className="tap inline-flex items-center gap-2 text-sm text-black/60 hover:text-black"><ArrowLeft size={15} /> Back to the lab</Link>
       <div className="flex flex-wrap gap-2">
         <button onClick={copy} className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white/60 px-3 py-2 text-sm hover:bg-white">{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Link copied' : 'Copy report link'}</button>
         <button disabled={!batch} onClick={() => batch && download('society-agent-report.md', 'text/markdown', reportMarkdown(batch, link))} className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white/60 px-3 py-2 text-sm hover:bg-white disabled:opacity-40"><Download size={14} /> Markdown</button>
@@ -78,7 +78,7 @@ export function Report() {
 
         <section className="avoid mt-10 border-t border-black/15 pt-6"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">How to read this</h2>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-black/60">{r.notes.map((n) => <li key={n}>{n}</li>)}</ul>
-          <p className="mt-5 text-sm text-black/60"><a href={link} className="font-medium text-[#b9531f] underline underline-offset-4">Re-run this experiment</a> <span className="text-black/62">— the link rebuilds the same towns and gives exactly these numbers.</span></p>
+          <p className="mt-5 text-sm text-black/60"><a href={link} className="tap inline-flex items-center font-medium text-[#b9531f] underline underline-offset-4">Re-run this experiment</a> <span className="text-black/62">— the link rebuilds the same towns and gives exactly these numbers.</span></p>
           <p className="mt-2 hidden break-all font-mono text-[10px] text-black/62 print:block">{link.length > 90 ? `${link.slice(0, 90)}…` : link}</p></section>
       </>}
     </article>
