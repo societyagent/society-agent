@@ -212,18 +212,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
         <div className="min-w-0">
           {tour && <Tour onClose={closeTour} />}
           <p className="mb-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/75" aria-live="polite">{narrate(s, events, done, s.tick > 0, s.agents.length)}</p>
-          <div className="relative">
-            <Town agents={s.agents} selected={sel} mode={mode} onSelect={setSel} tick={s.tick} layout={cfg.layout} />
-            {s.tick === 0 && !running && !tour && <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-2xl bg-gradient-to-t from-black/70 via-black/25 to-transparent p-4">
-              <div className="pointer-events-auto max-w-sm rounded-2xl border border-white/15 bg-[#120f0c]/92 p-5 text-center shadow-2xl backdrop-blur">
-                <p className="font-mono text-[10px] uppercase tracking-[.2em] text-ember-200/80">{clock(0)} · the town is waking up</p>
-                <p className="font-display mt-2 text-2xl leading-tight">{s.agents.length} residents, one piece of news.</p>
-                <p className="mt-2 text-sm leading-relaxed text-white/65">Press begin. Two people hear it first, then everyone walks, meets and talks. You can step in at any time.</p>
-                <button onClick={() => setRunning(true)} className="tap mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#ff9a62] px-6 py-2.5 text-sm font-semibold text-[#1a0f08] transition hover:bg-[#ffb185]"><Play size={14} fill="currentColor" /> Begin the day</button>
-              </div>
-            </div>}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 rounded-xl border border-white/[.08] bg-white/[.02] px-3 py-2 text-xs text-white/60">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 rounded-xl border border-white/[.08] bg-white/[.02] px-3 py-2 text-xs text-white/60">
             <div role="group" aria-label="Map colouring" className="flex overflow-hidden rounded-lg border border-white/10">{(['opinion', 'informed'] as const).map((m) => <button key={m} onClick={() => setMode(m)} aria-pressed={mode === m} className={`tap-auto px-3 py-1.5 transition ${mode === m ? 'bg-white/15 text-white' : 'hover:text-white'}`}>{m === 'opinion' ? 'Colour: opinion' : 'Colour: who knows'}</button>)}</div>
             <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <li className="text-white/50">The dot above each head:</li>
@@ -233,6 +222,17 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
                 : <li className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#ffb98a]" /> has heard</li>}
             </ul>
             <button onClick={() => setTour(true)} className="tap-auto text-white/55 underline-offset-4 hover:text-white hover:underline">How does this work?</button>
+          </div>
+          <div className="relative mx-auto" style={{ maxWidth: 'max(560px, calc((100vh - 400px) * 1.714))' }}>
+            <Town agents={s.agents} selected={sel} mode={mode} onSelect={setSel} tick={s.tick} layout={cfg.layout} />
+            {s.tick === 0 && !running && !tour && <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-2xl bg-gradient-to-t from-black/70 via-black/25 to-transparent p-4">
+              <div className="pointer-events-auto max-w-sm rounded-2xl border border-white/15 bg-[#120f0c]/92 p-5 text-center shadow-2xl backdrop-blur">
+                <p className="font-mono text-[10px] uppercase tracking-[.2em] text-ember-200/80">{clock(0)} · the town is waking up</p>
+                <p className="font-display mt-2 text-2xl leading-tight">{s.agents.length} residents, one piece of news.</p>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">Press begin. Two people hear it first, then everyone walks, meets and talks. You can step in at any time.</p>
+                <button onClick={() => setRunning(true)} className="tap mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#ff9a62] px-6 py-2.5 text-sm font-semibold text-[#1a0f08] transition hover:bg-[#ffb185]"><Play size={14} fill="currentColor" /> Begin the day</button>
+              </div>
+            </div>}
           </div>
           {!replay && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60"><span className="mr-1 font-mono text-[10px] uppercase tracking-[.14em] text-white/50">AI layer</span>
             {auth.session
@@ -296,7 +296,8 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
             <select value={String(target)} onChange={(e) => setTarget(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="mt-3 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none"><option value="all">Public announcement (everyone)</option>{s.agents.map((a) => <option key={a.id} value={a.id}>Whisper to {a.name}</option>)}</select>
             <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="e.g. Water will be restored by 6pm. No danger." className="mt-2 w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-white/55 focus:border-ember-300/50" />
             <div className="mt-2 flex items-center gap-2 text-xs text-white/50"><span>{cfg.axis[0]}</span><input type="range" min={-1} max={1} step={0.1} value={stance} onChange={(e) => setStance(Number(e.target.value))} className="flex-1 accent-ember-400" /><span>{cfg.axis[1]}</span></div>
-            <button onClick={send} disabled={!text.trim() || s.tick === 0} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-black disabled:opacity-40"><Send size={14} /> Send</button>
+            <button onClick={send} disabled={!text.trim() || s.tick === 0} aria-describedby={(s.tick === 0 || !text.trim()) ? 'send-hint' : undefined} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-black disabled:opacity-40"><Send size={14} /> Send</button>
+            {(s.tick === 0 || !text.trim()) && <p id="send-hint" className="mt-2 text-center text-[11px] text-white/55">{s.tick === 0 ? 'Opens when the day begins.' : 'Write a message first.'}</p>}
           </section>
 
           <section className="rounded-2xl border border-white/10 bg-white/[.025] p-4">
