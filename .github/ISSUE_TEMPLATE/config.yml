@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/societyagent/society-agent#documentation
+    about: The manual lives in the app at /docs. Check Limits and honesty and the FAQ first.

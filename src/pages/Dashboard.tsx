@@ -8,7 +8,7 @@ import { TEMPLATES, TOWN_PRESETS, buildCfg, townOf } from '@/engine/templates'
 import { MiniMap } from '@/components/MiniMap'
 import { useAuth } from '@/lib/auth'
 
-const chip = (on: boolean) => `tap-auto rounded-full border px-3.5 py-1.5 text-sm transition ${on ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 text-white/60 hover:border-white/25 hover:text-white'}`
+const chip = (on: boolean) => `tap rounded-full border px-3.5 py-1.5 text-sm transition ${on ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 text-white/60 hover:border-white/25 hover:text-white'}`
 const field = 'mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none transition focus:border-ember-300/60'
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
@@ -112,7 +112,7 @@ export function Dashboard() {
           </Step>
 
           <Step n={3} title="Run it" hint="No account needed. Sign in only if you want to save and share the run.">
-            <div className="flex flex-wrap items-center gap-4"><button onClick={start} className="tap-auto inline-flex items-center gap-2.5 rounded-xl bg-white px-7 py-4 text-base font-semibold text-black shadow-[0_10px_40px_-10px_rgba(255,185,138,.5)] transition hover:bg-ember-100"><Play size={17} fill="currentColor" /> Start simulation</button><p className="text-sm text-white/55">About 25 seconds at 4× speed</p></div>
+            <div className="flex flex-wrap items-center gap-4"><button onClick={start} className="tap inline-flex items-center gap-2.5 rounded-xl bg-white px-7 py-4 text-base font-semibold text-black shadow-[0_10px_40px_-10px_rgba(255,185,138,.5)] transition hover:bg-ember-100"><Play size={17} fill="currentColor" /> Start simulation</button><p className="text-sm text-white/55">About 25 seconds at 4× speed</p></div>
             <Link to="/app/lab" className="group mt-8 flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[.025] p-5 transition hover:border-ember-300/50">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-ember-300/15 text-ember-200"><FlaskConical size={18} /></span>
               <span><span className="block font-medium">Not sure what matters? Try the Experiment Lab <span className="ml-1 rounded-full bg-[#7ee0b0]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[#7ee0b0]">no sign-in</span></span>
@@ -134,12 +134,12 @@ export function Dashboard() {
                 <div><dt className="text-white/50">Debate</dt><dd className="mt-0.5 text-white/90">{axis[0]} ↔ {axis[1]}</dd></div>
                 {changed && <div className="col-span-2"><dt className="text-white/50">Changed</dt><dd className="mt-0.5 text-white/90">{personaOf(who)?.name}</dd></div>}
               </dl>
-              <button onClick={start} className="tap-auto hidden w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-[15px] font-semibold text-black transition hover:bg-ember-100 lg:inline-flex"><Play size={16} fill="currentColor" /> Start simulation</button>
+              <button onClick={start} className="tap hidden w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-[15px] font-semibold text-black transition hover:bg-ember-100 lg:inline-flex"><Play size={16} fill="currentColor" /> Start simulation</button>
             </div>
           </div>
         </aside>
       </div>
     </div>
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#0c0b0a]/95 p-3 backdrop-blur lg:hidden"><button onClick={start} className="tap-auto inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-base font-semibold text-black"><Play size={16} fill="currentColor" /> Start simulation</button></div>
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#0c0b0a]/95 p-3 backdrop-blur lg:hidden"><button onClick={start} className="tap inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-base font-semibold text-black"><Play size={16} fill="currentColor" /> Start simulation</button></div>
   </AppShell>
 }

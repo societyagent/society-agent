@@ -25,6 +25,8 @@ const PROBE = `(() => {
   for (const el of document.querySelectorAll('a[href], button, input, select, summary, [role=button]')) {
     if (!vis(el)) continue; const r = el.getBoundingClientRect()
     if (el.tagName === 'INPUT' && el.type === 'range') { if (r.height < 20) small.push({ t: 'range', w: Math.round(r.width), h: Math.round(r.height) }); continue }
+    // a radio/checkbox inside a <label> is operated by clicking the label: judge the label's box, which is what a finger hits
+    if (el.tagName === 'INPUT' && (el.type === 'radio' || el.type === 'checkbox') && el.closest('label')) { const lr = el.closest('label').getBoundingClientRect(); if (lr.width < 44 || lr.height < 36) small.push({ t: 'label for ' + el.type, w: Math.round(lr.width), h: Math.round(lr.height) }); continue }
     if (r.width < 44 || r.height < 36) small.push({ t: (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().slice(0, 28), w: Math.round(r.width), h: Math.round(r.height) })
   }
   const noName = [...document.querySelectorAll('button, a[href], input, select')].filter((el) => vis(el) && !(el.getAttribute('aria-label') || el.textContent.trim() || el.labels?.length || el.getAttribute('title'))).length

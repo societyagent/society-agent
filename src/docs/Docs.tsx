@@ -52,7 +52,7 @@ export function Docs() {
     <header className="sticky top-0 z-40 border-b border-white/[.08] bg-[#0c0b0a]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-3 md:gap-5 md:px-6">
         <button onClick={() => setDrawer(true)} aria-label="Open the documentation menu" className="tap-auto -ml-1 grid size-10 place-items-center rounded-lg text-white/70 hover:bg-white/[.06] lg:hidden"><Menu size={19} /></button>
-        <Link to="/" className="tap-auto flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-tight"><img src="/brand/society-mark.jpg" alt="" className="size-7 rounded-lg" /><span className="hidden sm:inline">society agent</span></Link>
+        <Link to="/" className="tap flex min-w-11 shrink-0 items-center justify-center gap-2 text-[15px] font-semibold tracking-tight sm:justify-start"><img src="/brand/society-mark.jpg" alt="" className="size-7 rounded-lg" /><span className="hidden sm:inline">society agent</span></Link>
         <span aria-hidden className="hidden text-white/25 sm:inline">/</span><Link to="/docs" className="tap-auto hidden text-sm text-white/70 hover:text-white sm:inline">Docs</Link>
         <div className="mx-auto w-full max-w-md"><SearchBox onPick={() => setDrawer(false)} /></div>
         <Link to="/app" className="tap-auto hidden shrink-0 items-center gap-1.5 rounded-full bg-[#f3ead9] px-4 py-2 text-sm font-semibold text-black transition hover:bg-white sm:inline-flex">Open the app <ArrowRight size={14} /></Link>

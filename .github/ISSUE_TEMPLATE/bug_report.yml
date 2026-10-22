@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work or gives a wrong result
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. Please do not report security problems here. Use the private "Report a vulnerability" form on the repository's Security tab.
+  - type: input
+    id: where
+    attributes:
+      label: Where did it happen
+      description: The page or screen, and the deployment if it is not your own
+      placeholder: /app/lab on my self-hosted copy
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the scenario, town, street plan and seed if you can. A lab link reproduces an experiment exactly.
+      placeholder: |
+        1. Open the lab
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Browser and device
+      placeholder: Firefox 130 on Android
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot or console output
+      description: Remove anything private such as wallet addresses or tokens.

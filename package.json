@@ -11,7 +11,7 @@
     "test:engine": "tsx tests/engine-check.ts",
     "test:e2e": "tsx tests/e2e.ts",
     "test": "npm run typecheck && npm run lint && npm run test:unit",
-    "test:unit": "tsx --tsconfig tsconfig.app.json --test tests/engine.test.ts tests/lab.test.ts tests/custom.test.ts tests/layouts.test.ts tests/golden.test.ts tests/docs.test.ts",
+    "test:unit": "tsx --tsconfig tsconfig.app.json --test tests/engine.test.ts tests/lab.test.ts tests/custom.test.ts tests/layouts.test.ts tests/golden.test.ts tests/docs.test.ts tests/links.test.ts",
     "typecheck": "tsc -b",
     "test:live": "tsx tests/e2e.ts $URL && tsx tests/security.ts $URL && tsx tests/ui.ts $URL"
   },
@@ -52,8 +52,29 @@
     "wrangler": "^4"
   },
   "license": "MIT",
-  "description": "Open-source agent-based town simulation",
+  "description": "Open-source agent-based town simulation: residents react to news, and an experiment lab tells you what really changes the outcome.",
   "overrides": {
     "ox": "$ox"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/societyagent/society-agent.git"
+  },
+  "homepage": "https://github.com/societyagent/society-agent#readme",
+  "bugs": {
+    "url": "https://github.com/societyagent/society-agent/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "agent-based-model",
+    "simulation",
+    "social-simulation",
+    "opinion-dynamics",
+    "multi-agent",
+    "cloudflare-pages",
+    "react",
+    "typescript"
+  ]
 }

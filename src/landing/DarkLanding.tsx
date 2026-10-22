@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { GithubMark, XMark } from '@/components/Marks'
+import { LINKS } from '@/lib/links'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { Town } from '@/components/Town'
@@ -124,14 +126,16 @@ const steps = [
 
 export function DarkLanding() {
   return <div className="min-h-screen bg-[#0c0b0a] font-sans text-[#f3ead9] selection:bg-[#ff9a62] selection:text-black">
+    <a href="#content" className="skip-link">Skip to content</a>
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[.07] bg-[#0c0b0a]/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 md:px-8">
         <a href="#top" className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight"><img src="/brand/society-mark.jpg" alt="" className="size-7 rounded-lg" />society agent</a>
         <div className="hidden items-center gap-8 text-sm text-white/55 md:flex"><a href="#compare" className="hover:text-white">The experiment</a><a href="#people" className="hover:text-white">The people</a><a href="#how" className="hover:text-white">How it works</a><Link to="/docs" className="hover:text-white">Docs</Link></div>
-        <Link to="/app" className="inline-flex items-center gap-1.5 rounded-full bg-[#f3ead9] px-4 py-2 text-sm font-semibold text-black transition hover:bg-white">Open the app <ArrowUpRight size={15} /></Link>
+        <div className="flex items-center gap-1.5 sm:gap-2"><a href={LINKS.github} target="_blank" rel="noopener noreferrer" aria-label="Society Agent on GitHub" className="tap grid size-10 place-items-center rounded-full text-white/65 transition hover:bg-white/[.07] hover:text-white"><GithubMark /></a>{LINKS.x && <a href={LINKS.x} target="_blank" rel="noopener noreferrer" aria-label="Society Agent on X" className="tap grid size-10 place-items-center rounded-full text-white/65 transition hover:bg-white/[.07] hover:text-white"><XMark /></a>}<Link to="/app" className="inline-flex items-center gap-1.5 rounded-full bg-[#f3ead9] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white">Open the app <ArrowUpRight size={15} /></Link></div>
       </nav>
     </header>
 
+    <main id="content" tabIndex={-1} className="outline-none">
     <section id="top" className="relative overflow-hidden px-5 pb-20 pt-24 md:px-8 md:pt-28">
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 70% 50% at 85% -5%, rgba(255,140,70,.22), transparent 65%), radial-gradient(ellipse 50% 40% at 0% 30%, rgba(126,224,176,.07), transparent 70%)' }} />
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[.35]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)', backgroundSize: '64px 64px', maskImage: 'linear-gradient(to bottom, black, transparent 70%)' }} />
@@ -182,11 +186,36 @@ export function DarkLanding() {
       </div>
     </div></section>
 
+    <section id="open-source" className="border-t border-white/[.07] bg-[#0a0908] px-5 py-20 md:px-8"><div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
+      <Fade><p className="font-mono text-[11px] uppercase tracking-[.22em] text-[#ffb98a]/80">Open source · MIT</p>
+        <h2 className="font-display mt-4 text-4xl leading-[1.02] tracking-[-.02em] md:text-5xl">Read every rule. Run it yourself. <span className="italic text-[#ffb98a]">Break it, then tell us.</span></h2>
+        <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-white/70">The engine is a few hundred lines of readable code, not a black box. A test replays 36 full days against fingerprints from the first version, so a run you share today still replays the same way next year.</p>
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <a href={LINKS.github} target="_blank" rel="noopener noreferrer" className="tap inline-flex items-center gap-2.5 rounded-full bg-[#f3ead9] px-6 py-3 text-[15px] font-semibold text-black transition hover:bg-white"><GithubMark size={17} /> View on GitHub</a>
+          {LINKS.x && <a href={LINKS.x} target="_blank" rel="noopener noreferrer" className="tap inline-flex items-center gap-2.5 rounded-full border border-white/15 px-6 py-3 text-[15px] font-medium text-white/85 transition hover:border-white/35 hover:text-white"><XMark size={15} /> Follow on X</a>}
+          <Link to="/docs" className="tap inline-flex items-center gap-1.5 rounded-full px-4 py-3 text-[15px] text-white/70 transition hover:text-white">Read the docs <ArrowRight size={15} /></Link></div></Fade>
+      <Fade><dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
+        {[['MIT', 'license, no strings'], ['36', 'full days pinned as a compatibility test'], ['45', 'security checks anyone can run'], ['0', 'accounts needed to simulate or run the lab']].map(([n, t]) => <div key={t} className="bg-[#0c0b0a] p-6"><dt className="font-display text-5xl tracking-[-.02em] text-[#f3ead9]">{n}</dt><dd className="mt-2 text-sm leading-snug text-white/60">{t}</dd></div>)}
+      </dl></Fade>
+    </div></section>
+
     <section className="relative overflow-hidden border-t border-white/[.07] px-5 py-28 text-center md:px-8">
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 50% 70% at 50% 120%, rgba(255,140,70,.25), transparent 70%)' }} />
       <Fade className="relative"><h2 className="font-display mx-auto max-w-3xl text-6xl leading-[.95] tracking-[-.03em] md:text-7xl">What would your town do?</h2>
         <Link to="/app" className="mt-10 inline-flex items-center gap-2 rounded-full bg-[#ff9a62] px-8 py-4 text-base font-semibold text-[#1a0f08] hover:bg-[#ffb185]">Run a simulation <ArrowRight size={18} /></Link></Fade>
     </section>
-    <footer className="border-t border-white/[.07] px-5 py-8 text-center font-mono text-[11px] uppercase tracking-[.18em] text-white/55"><span>Society Agent · early release · map art by Kenney (CC0)</span><nav aria-label="Footer" className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 normal-case tracking-normal"><Link to="/docs" className="tap-auto hover:text-white">Documentation</Link><Link to="/docs/quickstart" className="tap-auto hover:text-white">Quick start</Link><Link to="/docs/limits-honesty" className="tap-auto hover:text-white">Limits &amp; honesty</Link><Link to="/app/lab" className="tap-auto hover:text-white">Experiment lab</Link></nav></footer>
+    </main>
+    <footer className="border-t border-white/[.07] px-5 pb-10 pt-14 md:px-8"><div className="mx-auto max-w-6xl">
+      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div><Link to="/" className="tap-auto inline-flex items-center gap-2.5 text-[15px] font-semibold tracking-tight"><img src="/brand/society-mark.jpg" alt="" className="size-7 rounded-lg" />society agent</Link>
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/60">An open-source town simulation. A model of one invented town, not a forecast of a real one.</p>
+          <div className="mt-5 flex items-center gap-1.5"><a href={LINKS.github} target="_blank" rel="noopener noreferrer" aria-label="Society Agent on GitHub" className="tap grid size-10 place-items-center rounded-full border border-white/10 text-white/70 transition hover:border-white/30 hover:text-white"><GithubMark /></a>{LINKS.x && <a href={LINKS.x} target="_blank" rel="noopener noreferrer" aria-label="Society Agent on X" className="tap grid size-10 place-items-center rounded-full border border-white/10 text-white/70 transition hover:border-white/30 hover:text-white"><XMark /></a>}</div></div>
+        {([['Product', [['Run a simulation', '/app'], ['Experiment lab', '/app/lab'], ['Your own scenario', '/app']]], ['Learn', [['Documentation', '/docs'], ['Quick start', '/docs/quickstart'], ['How the lab decides', '/docs/statistics'], ['Limits & honesty', '/docs/limits-honesty']]]] as const).map(([h, items]) => <nav key={h} aria-label={h}><p className="font-mono text-[10px] uppercase tracking-[.2em] text-white/45">{h}</p><ul className="mt-4 space-y-1">{items.map(([t, to]) => <li key={t}><Link to={to} className="tap-auto inline-flex min-h-8 items-center text-sm text-white/70 transition hover:text-white">{t}</Link></li>)}</ul></nav>)}
+        <nav aria-label="Project"><p className="font-mono text-[10px] uppercase tracking-[.2em] text-white/45">Project</p><ul className="mt-4 space-y-1">
+          {[['Source on GitHub', LINKS.github], ['Report an issue', LINKS.issues], ['MIT license', LINKS.license], ['Report a vulnerability', LINKS.security]].map(([t, h]) => <li key={t}><a href={h} target="_blank" rel="noopener noreferrer" className="tap-auto inline-flex min-h-8 items-center text-sm text-white/70 transition hover:text-white">{t}</a></li>)}
+          {LINKS.x && <li><a href={LINKS.x} target="_blank" rel="noopener noreferrer" className="tap-auto inline-flex min-h-8 items-center text-sm text-white/70 transition hover:text-white">X</a></li>}</ul></nav>
+      </div>
+      <p className="mt-12 border-t border-white/[.07] pt-6 font-mono text-[11px] uppercase tracking-[.16em] text-white/45">Society Agent · early release · MIT · map art by Kenney (CC0)</p>
+    </div></footer>
   </div>
 }

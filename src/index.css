@@ -38,13 +38,21 @@ canvas:focus-visible { outline-offset: -2px; }
   summary { list-style: none; }
   summary::-webkit-details-marker { display: none; }
 }
-/* Touch devices and small screens: every control is at least 44px tall (WCAG 2.5.5 target size). Inline text links keep their size. */
+/* Touch devices and small screens: every control is at least 44px tall (WCAG 2.5.5). Links inside running text keep their size. */
 @media (pointer: coarse), (max-width: 700px) {
-  button, select, summary, [role='button'], header a, nav a, .tap { min-height: 44px; }
-  header a:not(.tap-auto), nav a:not(.tap-auto), summary, .tap { display: inline-flex; align-items: center; }
+  button, select, summary, [role='button'], [role='radio'], input:not([type='range']):not([type='checkbox']):not([type='radio']), textarea, .tap { min-height: 44px; }
+  header a, nav a, footer a, .tap { min-height: 44px; }
+  /* centre the label of a touch link without overriding utilities such as `hidden` or `block` (a plain display rule here beat them) */
+  header a:not(.hidden):not(.block), nav a:not(.hidden):not(.block), footer a:not(.hidden):not(.block), .tap:not(.hidden):not(.block) { display: inline-flex; align-items: center; }
   button { min-width: 44px; }
-  .tap-auto { min-height: 0; }
+  /* running text: do not stretch a sentence's link into a block */
+  p a, li a, td a, dd a, figcaption a, .prose-link { min-height: 0; display: inline; }
+  /* keep dense decorative anchors (heading permalinks) out of the tap order on touch */
+  h2 > a[aria-label^='Link to'] { display: none; }
 }
 
 /* Anchor jumps land below the sticky navigation bar. */
 html { scroll-padding-top: 5.5rem; }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
