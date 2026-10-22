@@ -1,6 +1,8 @@
 // MCP tests: config safety, request shaping against a mock, the real stdio protocol, and (opt-in) the live service.
 import assert from 'node:assert'
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createCore, digestRun, loadConfig } from '../src/core.js'
@@ -43,6 +45,20 @@ let pass = 0; const ok = (n) => { pass++; console.log('  ✓', n) }
   const d = digestRun({ cfg: { name: 'N' }, ticks: 144, result: { final: { informed: 1 }, report: ['a', 'b'], metrics, events } })
   assert.ok(d.curve.length <= 13 && d.keyEvents.length <= 12); assert.deepStrictEqual(d.findings, ['a', 'b']); assert.match(d.note, /not a forecast/)
   ok('digest: a 144-step run with 300 events becomes a short curve and at most 12 key events, findings kept')
+}
+
+// 3b. started the way npx and global installs start it: through a symlink in node_modules/.bin (this once left the server silent)
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sa-bin-')), link = path.join(dir, 'society-agent-mcp')
+  fs.symlinkSync(path.join(here, '../src/index.js'), link)
+  const out = await new Promise((resolve, reject) => {
+    const c = spawn(process.execPath, [link], { stdio: ['pipe', 'pipe', 'inherit'] }); let got = ''
+    const t = setTimeout(() => { c.kill(); reject(new Error('server started through a symlink never answered')) }, 20_000)
+    c.stdout.on('data', (d) => { got += d; if (got.includes('\n')) { clearTimeout(t); c.kill(); resolve(got) } })
+    c.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 't', version: '0' } } }) + '\n')
+  })
+  assert.strictEqual(JSON.parse(out.split('\n')[0]).result.serverInfo.name, 'society-agent')
+  ok('bin: the server answers when launched through a symlink, as npx and global installs do')
 }
 
 // 4. the real stdio protocol: spawn the server and speak MCP to it

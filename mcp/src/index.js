@@ -2,10 +2,12 @@
 // Society Agent MCP server (stdio). Three tools over the public agent API. No keys, no wallet, no spending.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { realpathSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import { createCore, digestRun, loadConfig } from './core.js'
 
-export const VERSION = '0.1.0'
+export const VERSION = '0.1.1'
 
 const STANCE = z.number().min(-1).max(1).describe('-1 calming … +1 alarming')
 const SCENARIO = z.object({
@@ -43,7 +45,10 @@ export function buildServer(cfg = loadConfig(), core = createCore(cfg)) {
   return server
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Start only when run as a program. `npx` and global installs launch us through a symlink in .bin, so compare REAL paths (a plain
+// `import.meta.url === file://argv[1]` check is false for a symlink and the server would silently never start).
+const real = (p) => { try { return realpathSync(p) } catch { return p } }
+if (process.argv[1] && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) {
   const server = buildServer()
   await server.connect(new StdioServerTransport())
 }

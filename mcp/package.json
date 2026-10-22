@@ -1,6 +1,6 @@
 {
   "name": "@societyagent/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for Society Agent: simulate how news spreads through an invented town and test whether an intervention makes a clear difference. Read-only, no keys, no wallet.",
   "type": "module",
   "main": "src/index.js",
