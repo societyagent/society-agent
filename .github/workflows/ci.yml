@@ -14,6 +14,16 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      - name: Install anvil (a real EVM node for the contract-wallet tests)
+        # Pinned release plus its published checksum, so a swapped binary fails the build instead of running.
+        run: |
+          set -e
+          V=v1.8.6; B=https://github.com/foundry-rs/foundry/releases/download/$V
+          curl -fsSL -o foundry.tgz "$B/foundry_${V}_linux_amd64.tar.gz"
+          curl -fsSL -o foundry.sha256 "$B/foundry_${V}_linux_amd64.sha256"
+          echo "$(cut -d' ' -f1 foundry.sha256)  foundry.tgz" | sha256sum -c -
+          mkdir -p "$HOME/foundry" && tar -xzf foundry.tgz -C "$HOME/foundry" anvil
+          echo "ANVIL_BIN=$HOME/foundry/anvil" >> "$GITHUB_ENV"
       - name: Typecheck, lint, unit tests
         run: npm test
       - name: Dependency audit (production + build tooling)

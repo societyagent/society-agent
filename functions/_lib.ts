@@ -2,7 +2,7 @@ import type { Cfg, Intervention } from '../src/engine/world'
 import { LIMITS } from '../src/engine/limits'
 import { LAYOUT_IDS, MIND_ACTIONS, RESIDENT_LIMIT, ROLES, TOWN_LIMIT, createState, stepWorld, intervene, summarize, type Ev, type Metric } from '../src/engine/world'
 
-export interface Env { DB: D1Database; HEALTH_TOKEN?: string; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string }
+export interface Env { DB: D1Database; HEALTH_TOKEN?: string; AI_API_KEY?: string; AI_BASE_URL?: string; AI_MODEL?: string; AI_FALLBACK_MODEL?: string; RPC_URLS?: string }
 export type Ctx = { request: Request; env: Env; params: Record<string, string | string[]> }
 
 export const MAX_TICKS = LIMITS.maxTicks

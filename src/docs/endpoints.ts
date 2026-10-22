@@ -72,6 +72,7 @@ export const ENDPOINTS: EndpointDoc[] = [
 /** Every environment variable / secret the project reads. Checked against the source by `tests/docs.test.ts`. */
 export const ENV_VARS: { name: string; where: string; required: string; what: string }[] = [
   { name: 'DB', where: 'Pages binding (D1)', required: 'yes', what: 'The D1 database. Bound as `DB` in `wrangler.toml`.' },
+  { name: 'RPC_URLS', where: 'Pages secret / `.dev.vars`', required: 'optional', what: 'JSON object of chain id to https RPC URL, e.g. `{"1":"https://…"}`. Needed only to let smart-contract wallets (Safe and other EIP-1271 accounts) sign in: the server asks the wallet contract whether the signature is valid. Without it, ordinary wallets still work and contract wallets get a clear message. Use a node you have an account with for real traffic: free public nodes rate-limit bursts.' },
   { name: 'AI_BASE_URL', where: 'Pages secret / `.dev.vars`', required: 'for AI features', what: 'Base URL of any API that speaks the chat-completions format. The app calls `{AI_BASE_URL}/chat/completions`.' },
   { name: 'AI_API_KEY', where: 'Pages secret / `.dev.vars`', required: 'for AI features', what: 'Key for that endpoint. Sent only from the server, never to the browser.' },
   { name: 'AI_MODEL', where: 'Pages secret / `.dev.vars`', required: 'for AI features', what: 'Model name to request first.' },

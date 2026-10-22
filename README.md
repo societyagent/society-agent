@@ -95,7 +95,7 @@ npx tsx tests/lab-ui.ts <url>     # the lab in a real browser (also: ui, docs-ui
 - [ ] Residents that plan across a day (perceive, remember, decide) instead of choosing one reaction
 - [ ] Agent minds inside lab batches
 - [ ] More maps, larger populations, competing news items
-- [ ] Smart-contract wallet (EIP-1271) sign-in
+- [x] Smart-contract wallet (EIP-1271) sign-in (Ethereum mainnet by default; set `RPC_URLS` for more networks)
 - [ ] A self-hostable Node + SQLite backend alongside Cloudflare
 
 ## Contributing
