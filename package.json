@@ -23,7 +23,7 @@
     "@reown/appkit-adapter-wagmi": "^1.8.24",
     "@tanstack/react-query": "^5.104.5",
     "framer-motion": "^13.3.0",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^1.59.0",
     "ox": "^0.14.56",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -37,18 +37,18 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "playwright": "^1.62.0",
+    "playwright": "^1.64.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.20.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4",
+    "vite": "^8.3.4",
     "wrangler": "^4"
   },
   "license": "MIT",
@@ -65,7 +65,7 @@
     "url": "https://github.com/societyagent/society-agent/issues"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "keywords": [
     "agent-based-model",
