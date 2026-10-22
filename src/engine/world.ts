@@ -428,8 +428,12 @@ export function summarize(st: State, metrics: Metric[], events: Ev[]) {
   const last = metrics[metrics.length - 1]
   const shifts = events.filter((e) => e.type === 'shift').length
   const lines: string[] = []
-  lines.push(`${Math.round((last?.informed ?? 0) * total)} of ${total} residents had heard the news by ${last ? dayClock(last.tick - 1) : 'the start'}.`)
-  if (timing.half) lines.push(`Half the town knew ${timing.half.hours.toFixed(1)} simulated hours after the news broke (by ${timing.half.clock})${timing.all ? `; everyone knew after ${timing.all.hours.toFixed(1)} hours` : ''}.`)
+  lines.push(`${Math.round((last?.informed ?? 0) * total)} of ${total} residents had heard the news by the end of the run (${last ? dayClock(last.tick - 1) : 'the start'}).`)
+  if (timing.half) {
+    // a public announcement can inform everyone in the same step; say so instead of printing the same number twice
+    const same = timing.all && timing.all.hours === timing.half.hours
+    lines.push(`Half the town knew ${timing.half.hours.toFixed(1)} simulated hours after the news broke (by ${timing.half.clock})${timing.all ? (same ? ', and everyone knew at that same moment' : `; everyone knew after ${timing.all.hours.toFixed(1)} hours`) : ''}.`)
+  }
   else lines.push('The news had not yet reached half the town.')
   if (spreaders.length) {
     const best = spreaders[0][1], leaders = spreaders.filter(([, n]) => n === best).map(([name]) => name.split(' ')[0])

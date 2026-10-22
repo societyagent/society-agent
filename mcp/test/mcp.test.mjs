@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createCore, digestRun, loadConfig } from '../src/core.js'
+import { clockOf, createCore, digestRun, loadConfig } from '../src/core.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const LIVE = process.env.SOCIETY_AGENT_URL || ''
@@ -47,6 +47,19 @@ let pass = 0; const ok = (n) => { pass++; console.log('  ✓', n) }
   ok('digest: a 144-step run with 300 events becomes a short curve and at most 12 key events, findings kept')
 }
 
+// 3a. the curve must not jump over an intervention (the 0.1.1 sampling hid the very moment a demo is about)
+{
+  const metrics = Array.from({ length: 144 }, (_, i) => ({ tick: i + 1, informed: i + 1 >= 37 ? 1 : 0.333, mean: i + 1 >= 37 ? 0.133 : 0.228, spread: 0.1, talks: i }))
+  const d = digestRun({ cfg: { name: 'N' }, ticks: 144, interventions: [{ tick: 36, iv: { type: 'announce', text: 't', stance: -0.6 } }], result: { final: {}, report: [], metrics, events: [] } })
+  const at = (t) => d.curve.find((c) => c.tick === t)
+  assert.strictEqual(at(36).informed, 0.333); assert.match(at(36).note, /just before the announcement/)
+  assert.strictEqual(at(37).informed, 1); assert.match(at(37).note, /just after the announcement/)
+  assert.ok(at(43), 'one hour after'); assert.ok(d.curve.length <= 20, 'still bounded: ' + d.curve.length)
+  assert.match(d.note, /announcement informs every resident/)
+  assert.strictEqual(clockOf(1), '07:00'); assert.strictEqual(clockOf(37), '13:00'); assert.strictEqual(clockOf(144), '06:50'); assert.strictEqual(clockOf(73), '19:00')
+  ok('digest: the steps just before and after an intervention are always in the curve, each point has a clock time, and the curve stays small')
+}
+
 // 3b. started the way npx and global installs start it: through a symlink in node_modules/.bin (this once left the server silent)
 {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sa-bin-')), link = path.join(dir, 'society-agent-mcp')
@@ -75,6 +88,9 @@ let pass = 0; const ok = (n) => { pass++; console.log('  ✓', n) }
   assert.ok(tools.every((t) => t.annotations.readOnlyHint === true), 'every tool is read-only')
   const props = JSON.stringify(tools.map((t) => t.inputSchema))
   assert.ok(!/"url"|"header"|"apiKey"|"secret"|"privateKey"/i.test(props), 'no tool accepts a URL, header or secret')
+  const sim = tools.find((t) => t.name === 'society_simulate'), cmp = tools.find((t) => t.name === 'society_compare')
+  assert.match(JSON.stringify(sim.inputSchema), /Tick 0 is 07:00/); assert.match(JSON.stringify(sim.inputSchema), /tick 36 is 13:00/)
+  assert.match(cmp.description, /FIRST one/); assert.match(cmp.description, /effect-size word/)
   const res = (await rpc(3, 'resources/read', { uri: 'society://safety' })).result.contents[0].text
   assert.match(res, /read-only/)
   ok('stdio protocol: 3 tools, all read-only, none can take a URL/header/secret, safety resource readable')
@@ -84,6 +100,11 @@ let pass = 0; const ok = (n) => { pass++; console.log('  ✓', n) }
     assert.strictEqual(st.health.ok, true); assert.ok(st.capabilities.tools.some((t) => t.name === 'compare_options'))
     const sim = JSON.parse((await rpc(5, 'tools/call', { name: 'society_simulate', arguments: { scenario: { name: 'Water main break', template: 'water', seed: 42, population: 12, news: { text: 'A water main broke in the east district and pressure may drop by noon.', stance: 0.6, startTick: 2, seedRoles: ['official', 'nurse'] } }, ticks: 144, interventions: [] } })).result.content[0].text)
     assert.strictEqual(sim.final.informed, 1); assert.ok(sim.findings.length >= 5 && sim.curve.length <= 13)
+    const jump = JSON.parse((await rpc(8, 'tools/call', { name: 'society_simulate', arguments: { scenario: { name: 'Water main break', template: 'water', news: { text: 'A water main broke in the east district and pressure may drop by noon.', stance: 0.6 } }, ticks: 144, interventions: [{ tick: 36, iv: { type: 'announce', text: 'Water will be restored by 6pm. There is no danger.', stance: -0.6 } }] } })).result.content[0].text)
+    const before = jump.curve.find((c) => c.tick === 36), after = jump.curve.find((c) => c.tick === 37)
+    assert.ok(before && after && before.informed < 0.5 && after.informed === 1, `the announcement jump must be visible: ${JSON.stringify([before, after])}`)
+    assert.strictEqual(before.clock, '12:50'); assert.strictEqual(after.clock, '13:00')
+    assert.ok(!jump.findings.some((f) => /everyone knew after/.test(f) && /Half the town knew (\d+\.\d) simulated hours.*everyone knew after \1 hours/.test(f)), 'no duplicated "5.7 / 5.7" sentence')
     const cmp = JSON.parse((await rpc(6, 'tools/call', { name: 'society_compare', arguments: { template: 'water', n: 10, outcome: 'final', conds: [{ label: 'Do nothing', kind: 'none' }, { label: 'Official statement', kind: 'announce', text: 'Water will be restored by 6pm.', hour: 12, stance: -0.6 }] } })).result.content[0].text)
     assert.strictEqual(cmp.towns, 10); assert.strictEqual(cmp.findings.length, 1); assert.ok(typeof cmp.findings[0].headline === 'string')
     const bad = (await rpc(7, 'tools/call', { name: 'society_compare', arguments: { template: 'water', conds: [{ label: 'a', kind: 'none' }] } })).result

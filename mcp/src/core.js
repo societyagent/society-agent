@@ -34,11 +34,25 @@ export function createCore(cfg, fetchImpl = fetch) {
   }
 }
 
-/** A run is long (144 steps of metrics and a hundred events). Give the model the answer and a bounded sample, not the whole log. */
+/** Metric tick n covers the ten minutes that END the step labelled n, and the day starts at 07:00: tick 1 is 07:00, tick 37 is 13:00. */
+export const clockOf = (n) => { const m = (7 * 60 + (n - 1) * 10) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }
+
+/**
+ * A run is long (144 steps of metrics and a hundred events). Give the model the answer and a bounded sample, not the whole log.
+ * The sample always includes the steps just before and just after every intervention, because "what changed when we stepped in" is the
+ * whole point of an intervention and a curve sampled every 12 steps can jump straight over it.
+ */
 export function digestRun(out, { everyNth = 12, events = 12 } = {}) {
   const m = out.result.metrics
-  const curve = m.filter((_, i) => i % everyNth === everyNth - 1 || i === m.length - 1).map((x) => ({ tick: x.tick, informed: round(x.informed), mean: round(x.mean), spread: round(x.spread) }))
+  const marks = new Map() // tick -> why it is in the sample
+  for (const x of m) if (x.tick % everyNth === 0 || x.tick === m.length) marks.set(x.tick, marks.get(x.tick) ?? '')
+  for (const iv of out.interventions ?? []) {
+    marks.set(iv.tick, `just before the ${iv.iv.type === 'announce' ? 'announcement' : 'whisper'}`)
+    marks.set(iv.tick + 1, `just after the ${iv.iv.type === 'announce' ? 'announcement' : 'whisper'}`)
+    marks.set(iv.tick + 7, 'one hour after')
+  }
+  const curve = m.filter((x) => marks.has(x.tick)).map((x) => ({ tick: x.tick, clock: clockOf(x.tick), informed: round(x.informed), mean: round(x.mean), spread: round(x.spread), ...(marks.get(x.tick) ? { note: marks.get(x.tick) } : {}) }))
   const key = out.result.events.filter((e) => ['news', 'shift', 'intervene'].includes(e.type)).slice(0, events).map((e) => ({ time: e.t, type: e.type, text: e.text }))
-  return { scenario: out.cfg.name, ticks: out.ticks, final: out.result.final, findings: out.result.report, curve, keyEvents: key, note: 'Model of an invented town, not a forecast of real people. Same scenario, seed and interventions reproduce these numbers exactly.' }
+  return { scenario: out.cfg.name, ticks: out.ticks, final: out.result.final, findings: out.result.report, curve, keyEvents: key, note: 'Model of an invented town, not a forecast of real people. Same scenario, seed and interventions reproduce these numbers exactly. A public announcement informs every resident who has not yet heard in the same step, so a jump to 100% right after one is how the model works, not a conversation effect.' }
 }
 const round = (n) => Math.round(n * 1000) / 1000

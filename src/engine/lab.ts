@@ -136,10 +136,11 @@ export function pickRun(rs: RunResult[], which: 'low' | 'mid' | 'high') {
 /* ───────── plain-language verdict ───────── */
 export function verdict(label: string, base: string, p: Pair, o: OutcomeDef, axis: string[]): { headline: string; detail: string; tone: 'clear' | 'none' } {
   const dir = p.delta < 0 ? o.down(axis) : o.up(axis), amt = Math.abs(p.delta).toFixed(o.digits) + o.unit
+  const bounded = o.id === 'final' || o.id === 'peak'
   const same = p.delta < 0 ? p.lower : p.higher, opposite = p.delta < 0 ? p.higher : p.lower, tied = p.n - p.lower - p.higher
   const split = [opposite ? `the other way in ${opposite}` : '', tied ? `no change in ${tied}` : ''].filter(Boolean).join(', ')
   if (!p.clear) return { tone: 'none', headline: `${label}: no clear difference from “${base}”.`, detail: `Average change ${p.delta >= 0 ? '+' : '−'}${amt} (95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)}). With ${p.n} towns the data cannot separate this from chance.` }
-  return { tone: 'clear', headline: `${label}: ${dir} than “${base}” by ${amt}.`, detail: `Same direction in ${same} of ${p.n} towns${split ? ` (${split})` : ''} · 95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)} · ${p.size} effect.` }
+  return { tone: 'clear', headline: `${label}: ${dir} than “${base}” by ${amt}.`, detail: `Same direction in ${same} of ${p.n} towns${split ? ` (${split})` : ''} · 95% CI ${p.ci[0].toFixed(o.digits)} to ${p.ci[1].toFixed(o.digits)} · ${p.size} effect size (how consistent the change is from town to town, not how big it is)${bounded ? `. The change is ${amt} on a scale that runs from −1 to +1` : ''}.` }
 }
 
 /* ───────── defaults + shareable link ───────── */
