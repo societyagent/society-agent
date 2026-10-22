@@ -11,6 +11,7 @@ const text = async () => p.locator('body').innerText()
 await p.goto(BASE + '/app', { waitUntil: 'networkidle' })
 ok('dashboard links to the lab (no sign-in needed)', (await p.getByRole('link', { name: /Experiment Lab/ }).count()) === 1)
 await p.getByRole('link', { name: /Experiment Lab/ }).click(); await p.waitForURL('**/app/lab')
+await p.locator('input[aria-label="Name of option 3"]').waitFor()
 const names = await p.locator('input[aria-label^="Name of option"]').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value))
 ok('lab opens with the default experiment (three named options)', names.join('|') === 'Do nothing|Official statement|One quiet reassurance', names.join('|'))
 

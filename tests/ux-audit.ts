@@ -49,7 +49,7 @@ const rows: Row[] = [], details: string[] = []
 const screens: [string, string, (p: Page) => Promise<void>][] = [
   ['landing', '/', async (p) => { await p.waitForTimeout(1500) }],
   ['dashboard', '/app', async () => {}],
-  ['simulation', '/app/sim', async (p) => { await p.getByRole('button', { name: 'Got it' }).click().catch(() => {}); await p.waitForTimeout(1500) }],
+  ['simulation', '/app/sim', async (p) => { await p.getByRole('button', { name: 'Got it' }).click().catch(() => {}); await p.getByRole('button', { name: 'Begin the day' }).click().catch(() => {}); await p.waitForTimeout(1500) }],
   ['lab', '/app/lab', async () => {}],
   ['lab result', '/app/lab', async (p) => { await p.getByRole('button', { name: /Run \d+ simulated days/ }).click(); await p.waitForSelector('text=Result ·', { timeout: 90000 }) }],
   ['report', '/app/lab', async (p) => { await p.getByRole('button', { name: /Run \d+ simulated days/ }).click(); await p.waitForSelector('text=Result ·', { timeout: 90000 }); await p.getByRole('link', { name: /Make a report/ }).click(); await p.waitForSelector('text=Findings', { timeout: 90000 }) }],

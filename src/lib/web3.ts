@@ -2,13 +2,21 @@
 // createAppKit runs at module scope on purpose: it must exist before any AppKit call.
 import { createAppKit } from '@reown/appkit'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
+import { baseAccount, coinbaseWallet } from 'wagmi/connectors'
 import { mainnet } from '@reown/appkit/networks'
 
 export const PROJECT_ID = (import.meta.env.VITE_REOWN_PROJECT_ID as string | undefined)?.trim() ?? ''
 if (!PROJECT_ID) throw new Error('VITE_REOWN_PROJECT_ID is not set')
 
 const networks: [typeof mainnet] = [mainnet] // Sign-in only: the chain id is just part of the SIWE message, no transactions are ever sent.
-const wagmiAdapter = new WagmiAdapter({ networks, projectId: PROJECT_ID, ssr: false })
+// Coinbase Wallet and Base Account are offered, but with their telemetry switched off. By default these SDKs inject a third-party
+// analytics script as inline code, which a strict Content-Security-Policy (script-src 'self') correctly refuses. AppKit only adds its
+// own copies of these connectors when none is registered, and it does not pass `telemetry: false`, so we register them ourselves.
+const connectors = [
+  baseAccount({ appName: 'Society Agent', preference: { telemetry: false } }),
+  coinbaseWallet({ appName: 'Society Agent', preference: { options: 'all', telemetry: false } }),
+]
+const wagmiAdapter = new WagmiAdapter({ networks, projectId: PROJECT_ID, ssr: false, connectors })
 
 export const appKit = createAppKit({
   adapters: [wagmiAdapter], networks, projectId: PROJECT_ID, defaultNetwork: mainnet,

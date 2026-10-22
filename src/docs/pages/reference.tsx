@@ -184,6 +184,7 @@ npx wrangler pages secret put AI_BASE_URL --project-name your-project
 npx wrangler pages secret put AI_MODEL --project-name your-project
 npx wrangler pages secret put HEALTH_TOKEN --project-name your-project   # optional`}</Code> },
       { id: 'wallet', title: 'Wallet sign-in (Reown)', body: <P>Create a free project at the Reown dashboard, copy its <B>public</B> project id into <M>.env.local</M> as <M>VITE_REOWN_PROJECT_ID</M>, rebuild, and add your deployment’s domain to the project’s allowlist. Without an id the modal falls back to an injected wallet such as a browser extension.</P> },
+      { id: 'wallet-list', title: 'Which wallets the modal offers', body: <><P>Browser extensions, Coinbase Wallet and Base Account, and any mobile or desktop wallet through WalletConnect.</P><Callout kind="note"><B>Why Coinbase and Base are registered by hand.</B> Their SDKs inject a third-party analytics script as <i>inline</i> code, which the strict Content-Security-Policy (<M>script-src 'self'</M>) refuses. <M>src/lib/web3.ts</M> registers both connectors with <M>telemetry: false</M>, so the script is never created and the policy needs no exception. <M>tests/wallet-ui.ts</M> fails if the modal ever triggers a policy violation.</Callout></> },
       { id: 'custom-domain', title: 'A custom domain', body: <P>Add the domain to the Pages project, then add it to the Reown allowlist. Sign-in messages name the domain the page is served from, so they adapt automatically; nothing else in the code mentions a host.</P> },
     ],
   },

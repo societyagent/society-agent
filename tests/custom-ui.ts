@@ -19,7 +19,7 @@ await p.getByLabel('One side of the debate').fill('Keep the cinema'); await p.ge
 await p.getByRole('button', { name: 'student', exact: true }).click()   // adds student to the defaults (official, organizer) -> 3
 await p.getByRole('button', { name: 'official', exact: true }).click()  // removes official
 await p.getByRole('button', { name: 'Suspicious', exact: true }).click()
-await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim')
+await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim'); await p.getByRole('button', { name: 'Got it' }).click().catch(() => {}); await p.getByRole('button', { name: 'Begin the day' }).click()
 await p.getByRole('button', { name: 'Got it' }).click().catch(() => {})
 const head = await p.locator('main').first().innerText()
 ok('the simulation shows the author\'s own news', head.includes(NEWS))

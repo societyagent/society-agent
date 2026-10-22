@@ -44,7 +44,7 @@ function SignIn({ busy, error, onSignIn }: { busy: boolean; error: string; onSig
 const TOUR_KEY = 'society-agent-tour-v1'
 function Tour({ onClose }: { onClose: () => void }) {
   const steps = [
-    ['Watch', 'The day starts by itself. At 07:20 the news breaks and a couple of residents hear it first; everyone then walks the town and talks. Use Pause or 12× to control time.'],
+    ['Watch', 'Press Begin the day. At 07:20 the news breaks and a couple of residents hear it first; everyone then walks the town and talks. Use Pause or 12× to control time.'],
     ['Inspect', 'Click any resident on the map to read their bio, mood and memories — and see who they heard it from.'],
     ['Step in', 'On the right, send a public announcement or whisper to one person. Try it around the time half the town has heard.'],
     ['Read', 'When the day ends, “What happened” explains the outcome. Compare it with a run where you stayed silent.'],
@@ -80,7 +80,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
   const [seedIvs] = useState(() => replay?.ivs ?? loc.ivs)
   const { sim, snap } = useSim(cfg, seedIvs)
   const { metrics, events, ivs } = snap
-  const [running, setRunning] = useState(!replay)
+  const [running, setRunning] = useState(false)
   const [speed, setSpeed] = useState<Speed>(4)
   const [sel, setSel] = useState<number | null>(null)
   const [mode, setMode] = useState<'opinion' | 'informed'>('opinion')
@@ -179,7 +179,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
     const iv: Intervention = target === 'all' ? { type: 'announce', text, stance } : { type: 'whisper', agent: target, text, stance }
     sim.intervene(iv); setText('')
   }
-  const reset = () => { sim.reset(); decidedAt.current = new Map(); mindCalls.current = 0; setMindNote(''); setSaved(null); setSel(null); setRunning(true); voiced.current = new Set(); voiceCalls.current = 0; setChat({}); setAnalysis(''); setVoiceNote('') }
+  const reset = () => { sim.reset(); decidedAt.current = new Map(); mindCalls.current = 0; setMindNote(''); setSaved(null); setSel(null); setRunning(false); voiced.current = new Set(); voiceCalls.current = 0; setChat({}); setAnalysis(''); setVoiceNote('') }
   const save = async () => {
     if (!auth.session) return
     setSaveErr('')
@@ -212,7 +212,17 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
         <div className="min-w-0">
           {tour && <Tour onClose={closeTour} />}
           <p className="mb-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-2.5 text-sm text-white/75" aria-live="polite">{narrate(s, events, done, s.tick > 0, s.agents.length)}</p>
-          <Town agents={s.agents} selected={sel} mode={mode} onSelect={setSel} tick={s.tick} layout={cfg.layout} />
+          <div className="relative">
+            <Town agents={s.agents} selected={sel} mode={mode} onSelect={setSel} tick={s.tick} layout={cfg.layout} />
+            {s.tick === 0 && !running && !tour && <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-2xl bg-gradient-to-t from-black/70 via-black/25 to-transparent p-4">
+              <div className="pointer-events-auto max-w-sm rounded-2xl border border-white/15 bg-[#120f0c]/92 p-5 text-center shadow-2xl backdrop-blur">
+                <p className="font-mono text-[10px] uppercase tracking-[.2em] text-ember-200/80">{clock(0)} · the town is waking up</p>
+                <p className="font-display mt-2 text-2xl leading-tight">{s.agents.length} residents, one piece of news.</p>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">Press begin. Two people hear it first, then everyone walks, meets and talks. You can step in at any time.</p>
+                <button onClick={() => setRunning(true)} className="tap mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#ff9a62] px-6 py-2.5 text-sm font-semibold text-[#1a0f08] transition hover:bg-[#ffb185]"><Play size={14} fill="currentColor" /> Begin the day</button>
+              </div>
+            </div>}
+          </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 rounded-xl border border-white/[.08] bg-white/[.02] px-3 py-2 text-xs text-white/60">
             <div role="group" aria-label="Map colouring" className="flex overflow-hidden rounded-lg border border-white/10">{(['opinion', 'informed'] as const).map((m) => <button key={m} onClick={() => setMode(m)} aria-pressed={mode === m} className={`tap-auto px-3 py-1.5 transition ${mode === m ? 'bg-white/15 text-white' : 'hover:text-white'}`}>{m === 'opinion' ? 'Colour: opinion' : 'Colour: who knows'}</button>)}</div>
             <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1">

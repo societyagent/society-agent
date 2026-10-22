@@ -27,3 +27,5 @@ jobs:
       - run: npx tsx tests/layouts-ui.ts "${{ inputs.url }}"
       - run: npx tsx tests/layouts-api.ts "${{ inputs.url }}"
       - run: npx tsx tests/docs-ui.ts "${{ inputs.url }}"
+      - run: npx tsx tests/wallet-ui.ts "${{ inputs.url }}"
+      - run: npx tsx tests/landing-ui.ts "${{ inputs.url }}"

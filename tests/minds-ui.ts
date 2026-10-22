@@ -18,7 +18,7 @@ const ok = (n: string, c: boolean, x = '') => { c ? pass++ : fail++; console.log
 const read = async (pg: typeof p) => { const t = await pg.locator('body').innerText(); return { heard: t.match(/Heard the news\s*(\d+)%/)?.[1], opinion: t.match(/Avg\. opinion\s*(-?\d\.\d+)/)?.[1], dis: t.match(/Disagreement\s*(\d\.\d+)/)?.[1], conv: t.match(/Conversations\s*(\d+)/)?.[1] } }
 
 await p.goto(BASE + '/app', { waitUntil: 'networkidle' })
-await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim')
+await p.getByRole('button', { name: /Start simulation/ }).first().click(); await p.waitForURL('**/app/sim'); await p.getByRole('button', { name: 'Got it' }).click().catch(() => {}); await p.getByRole('button', { name: 'Begin the day' }).click()
 await p.getByRole('button', { name: 'Got it' }).click().catch(() => {})
 await p.getByRole('button', { name: /Agent minds off/ }).click()
 ok('Agent minds toggles on', await p.getByRole('button', { name: /Agent minds on/ }).count() === 1)
@@ -48,8 +48,11 @@ await anon.getByRole('button', { name: '12×' }).click(); await anon.getByRole('
 await anon.waitForSelector('text=What happened', { timeout: 150000 })
 const guest = await read(anon); console.log('   guest replay :', JSON.stringify(guest))
 ok('a stranger replaying the shared run gets the IDENTICAL result', JSON.stringify(guest) === JSON.stringify(owner))
-const gDecisions = await anon.locator('aside p', { hasText: /chooses to/ }).allInnerTexts()
-ok('the stranger sees the same residents\' decisions', gDecisions.length > 0 && gDecisions.length === decisions.length || gDecisions.length >= Math.min(1, decisions.length), `${gDecisions.length} vs ${decisions.length}`)
+const runId = link.split('/').pop()!
+const rec = await (await anon.request.get(`${BASE}/api/runs/${runId}`)).json() as { interventions: { tick: number; iv: { type: string; agent?: number; action?: string } }[] }
+const recorded = rec.interventions.filter((i) => i.iv.type === 'decide')
+console.log('   recorded decisions served to the stranger:', JSON.stringify(recorded.map((r) => `${r.iv.agent}:${r.iv.action}@${r.tick}`)))
+ok('the stranger receives the residents\' recorded decisions (served by the API, which the replay applies)', recorded.length >= Math.max(1, Math.min(decisions.length, 3)) && recorded.every((r) => ['warn', 'reassure', 'verify', 'stay_quiet'].includes(r.iv.action ?? '')), `${recorded.length} recorded vs ${decisions.length} the owner saw`)
 ok('no page errors', errs.length === 0, errs[0] ?? '')
 console.log(`\n${pass} passed, ${fail} failed`)
 await fetch(BASE + '/api/auth/me', { method: 'DELETE', headers: { cookie: cookiePair, origin: BASE } })
