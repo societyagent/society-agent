@@ -75,7 +75,7 @@ AI_FALLBACK_MODEL=…`}</Code></> },
         <P>This is exactly what the test suite does, with a throwaway wallet.</P>
         <Code label="TypeScript (Node 20+)">{`import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
 
-const BASE = 'https://your-deployment.pages.dev'
+const BASE = 'https://societyagent.fun'
 const account = privateKeyToAccount(generatePrivateKey())
 const post = (path: string, body: unknown, token?: string) => fetch(BASE + path, {
   method: 'POST',
@@ -219,7 +219,7 @@ npx wrangler secret put ALERT_WEBHOOK      # any https endpoint that accepts JSO
       { id: 'api', title: 'The API', body: <UL><li>No CORS is granted and cross-origin or cross-site browser requests are refused.</li><li>Results are recomputed by the server; the client cannot submit metrics.</li><li>Every input is clamped, truncated or rejected on the server; see <D to="api">HTTP API → inputs</D>.</li><li>Private and missing runs are indistinguishable.</li><li>Rate limits on sign-in, saving and AI use, plus a deployment-wide AI cap.</li></UL> },
       { id: 'browser', title: 'The browser', body: <UL><li>A strict Content-Security-Policy: scripts only from this origin, no inline script and no <M>eval</M>.</li><li>Fonts are self-hosted. The wallet modal is loaded only when someone signs in.</li><li>No raw HTML injection: residents’ lines, news text and experiment labels are rendered as text. CSV exports neutralise spreadsheet formulas.</li><li>Clickjacking protection (<M>X-Frame-Options: DENY</M>), HSTS and a restrictive Permissions-Policy.</li></UL> },
       { id: 'verify', title: 'Check it yourself', body: <>
-        <Code>{`npx tsx tests/security.ts https://your-deployment.pages.dev`}</Code>
+        <Code>{`npx tsx tests/security.ts https://societyagent.fun`}</Code>
         <P>45 checks across auth guards, SIWE format, cookie flags, CSRF, input abuse, headers and secrets in the client bundle, each with a severity. A finding of any severity fails the run.</P></> },
       { id: 'report', title: 'Reporting a vulnerability', body: <P>Please report privately (the repository’s “Report a vulnerability” form or the contact on the repository profile) rather than in a public issue. We aim to acknowledge reports within 72 hours.</P> },
       { id: 'honest', title: 'Known gaps', body: <Callout kind="honest">Smart-contract wallets (EIP-1271) are not supported. The session lasts seven days without rotation. The global AI quota can be exhausted by one determined abuser, which fails safe (AI stops, the rest keeps working).</Callout> },
