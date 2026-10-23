@@ -14,6 +14,10 @@ await p.getByRole('link', { name: /Experiment Lab/ }).click(); await p.waitForUR
 await p.locator('input[aria-label="Name of option 3"]').waitFor()
 const names = await p.locator('input[aria-label^="Name of option"]').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value))
 ok('lab opens with the default experiment (three named options)', names.join('|') === 'Do nothing|Official statement|One quiet reassurance', names.join('|'))
+await p.getByRole('button', { name: /Does a town’s social fabric change the spread/ }).click()
+await p.getByText('Result · 60 towns per option').waitFor({ timeout: 90000 })
+ok('one-click question runs and measures news spread without setup', (await p.locator('section[aria-live="polite"] h2').first().innerText()) === 'Hours until half the town knew' && (await p.locator('table tbody tr').count()) === 3)
+await p.getByRole('button', { name: /Reset to the default experiment/ }).click()
 
 const t0 = Date.now()
 await p.getByRole('button', { name: /Run 180 simulated days/ }).click()
@@ -62,7 +66,7 @@ ok('a fourth option can be added', (await p.locator('input[aria-label^="Name of 
 await p.getByLabel('Disagreement at the end of the day').check()
 await p.getByRole('button', { name: /Run again|Run \d+ simulated days/ }).click()
 await p.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 4, null, { timeout: 90000 })
-ok('adding an option and changing the measure re-runs and relabels the result', (await p.locator('main h2').first().innerText()) === 'Disagreement at the end of the day' && (await p.locator('table tbody tr').count()) === 4)
+ok('adding an option and changing the measure re-runs and relabels the result', (await p.locator('section[aria-live="polite"] h2').first().innerText()) === 'Disagreement at the end of the day' && (await p.locator('table tbody tr').count()) === 4)
 
 // watch one town from the lab
 await p.getByRole('button', { name: 'typical' }).nth(1).click(); await p.waitForURL('**/app/sim')

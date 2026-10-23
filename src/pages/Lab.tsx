@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Check, ChevronRight, Copy, Download, FileText, Play, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { LAYOUT_META, RESIDENT_LIMIT, ROLES, personaOf, type LayoutId, type ResidentTweak } from '@/engine/world'
@@ -31,6 +31,7 @@ export function Lab() {
   const [copied, setCopied] = useState(false)
   const [linkErr] = useState(() => !!params.get('x') && !fromLink)
   const cancel = useRef(0)
+  const resultRef = useRef<HTMLElement>(null)
   const t = TEMPLATES.find((q) => q.id === x.template)!
   const axis: [string, string] = (batch ? batch.x.custom?.axis : x.custom?.axis) ?? t.axis
   const total = x.n * x.conds.length
@@ -42,11 +43,16 @@ export function Lab() {
     const b = await runBatch(exp, (done, tot) => { if (id === cancel.current) setProg({ done, total: tot }) }, () => id !== cancel.current)
     if (b && id === cancel.current) { setBatch(b); setProg(null); void t0 }
   }, [])
+  useEffect(() => { if (batch) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [batch])
 
 
-  const patch = (p: Partial<Experiment>) => { edited.current = true; setX((o) => ({ ...o, ...p })) }
+  const patch = (p: Partial<Experiment>) => { edited.current = true; cancel.current++; setProg(null); setBatch(null); setX((o) => ({ ...o, ...p })) }
   const patchCond = (i: number, p: Partial<Condition>) => patch({ conds: x.conds.map((c, k) => (k === i ? { ...c, ...p } : c)) })
   const pickTemplate = (id: string) => { const d = defaultExperiment(id); edited.current = true; setX((o) => ({ ...d, n: o.n, outcome: o.outcome })); setBatch(null) }
+  const tryQuestion = (make: (template: string) => Experiment) => {
+    const next = { ...make(x.template), text: x.text, custom: x.custom, n: Math.min(x.n, 60) }
+    edited.current = true; setX(next); void run(next)
+  }
   const setN = (n: number) => patch({ n: Math.max(LIMITS.lab.minTowns, Math.min(Math.floor(MAX_RUNS / x.conds.length), n)) })
   const addCond = () => { if (x.conds.length >= LIMITS.lab.maxOptions) return; const d = defaultExperiment(x.template).conds[1]; patch({ conds: [...x.conds, { ...d, id: `c${x.conds.length + 1}`, label: `Option ${x.conds.length + 1}`, hour: 9 }], n: Math.min(x.n, Math.floor(MAX_RUNS / (x.conds.length + 1))) }) }
   const removeCond = (i: number) => { if (x.conds.length <= 2) return; patch({ conds: x.conds.filter((_, k) => k !== i) }) }
@@ -69,6 +75,23 @@ export function Lab() {
       <p className="mt-3 max-w-2xl text-white/55">A single run can be luck. The lab replays the day in {x.n} different random towns for every option, using the <i>same</i> towns each time, then tells you in plain language whether the difference is real.</p>
       {linkErr && <p role="alert" className="mt-4 rounded-xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm text-rose-200">That experiment link is not valid, so the default experiment is loaded instead.</p>}
 
+      <div className="mt-8 rounded-2xl border border-ember-300/25 bg-gradient-to-br from-ember-300/[.09] via-white/[.025] to-transparent p-5 md:p-6">
+        <p className="font-mono text-[11px] uppercase tracking-[.18em] text-ember-200">Start with a question</p>
+        <h2 className="mt-2 font-display text-2xl md:text-3xl">One click from question to evidence.</h2>
+        <p className="mt-2 text-sm text-white/60">No setup or sign-in. Pick a comparison; the same towns are replayed for every option. Edit everything below if you want to go deeper.</p>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {([
+            ['Which response changes opinion?', 'Compare silence, a public statement, and one whisper.', defaultExperiment],
+            ['Does a town’s social fabric change the spread?', 'Compare everyday, close-knit, and isolated towns.', townComparison],
+            ['Do streets change the outcome?', 'Compare three street plans with the same news.', layoutComparison],
+          ] as const).map(([title, description, make]) => <button key={title} type="button" disabled={!!prog} onClick={() => tryQuestion(make)} className="group flex min-h-36 flex-col items-start justify-between rounded-xl border border-white/15 bg-[#17120f] p-4 text-left transition hover:border-ember-300/60 hover:bg-[#211812] disabled:opacity-50">
+            <span><span className="block text-base font-medium leading-snug text-white">{title}</span><span className="mt-2 block text-sm leading-relaxed text-white/55">{description}</span></span>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-ember-200">Run this question <Play size={13} fill="currentColor" className="transition group-hover:translate-x-0.5" /></span>
+          </button>)}
+        </div>
+        {prog && <p role="status" className="mt-4 font-mono text-xs text-ember-200">Comparing {prog.done} of {prog.total} simulated days…</p>}
+      </div>
+
       <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_320px]">
         <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
           <p className="text-sm font-medium text-white/80">1 · The situation</p>
@@ -88,8 +111,7 @@ export function Lab() {
             <label className="text-xs text-white/50">The town<select value={x.town ?? 'default'} onChange={(e) => patch({ town: e.target.value === 'default' ? undefined : e.target.value })} className="ml-2 rounded-lg border border-white/10 bg-[#17130f] px-3 py-1.5 text-sm text-white outline-none focus:border-ember-300/50">{TOWN_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
             <label className="text-xs text-white/50">Street plan<select value={x.layout ?? 'classic'} onChange={(e) => patch({ layout: e.target.value === 'classic' ? undefined : (e.target.value as LayoutId) })} className="ml-2 rounded-lg border border-white/10 bg-[#17130f] px-3 py-1.5 text-sm text-white outline-none focus:border-ember-300/50">{LAYOUT_META.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-xs text-white/55">Try a ready-made question:</span>
-            {([['Does the kind of town matter?', 'Same news, nobody steps in, three kinds of town', townComparison], ['Does the street plan matter?', 'Same news, nobody steps in, three street plans. Results differ by story, so try more than one.', layoutComparison], ['What if one person were different?', 'The same town, but one resident keeps to themselves (less sociable)', (tpl: string) => residentComparison(tpl, 8, { social: 0.4 })]] as const).map(([label, tip, make]) => <button key={label} onClick={() => { edited.current = true; setX((o) => ({ ...make(o.template), text: o.text, custom: o.custom, n: Math.min(o.n, 60) })); setBatch(null) }} title={tip} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/65 hover:border-ember-300/50 hover:text-white">{label} →</button>)}</div>
+          <button onClick={() => tryQuestion((tpl) => residentComparison(tpl, 8, { social: 0.4 }))} disabled={!!prog} className="mt-4 text-left text-sm text-ember-200 hover:underline disabled:opacity-50">Or test whether changing one resident’s sociability matters →</button>
 
           <p className="mt-6 text-sm font-medium text-white/80">2 · The options to compare <span className="font-normal text-white/55">(the first is your baseline)</span></p>
           <div className="mt-3 space-y-3">{x.conds.map((c, i) => <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
@@ -123,14 +145,14 @@ export function Lab() {
           <div className="mt-3 space-y-2">{(Object.keys(OUTCOMES) as OutcomeId[]).map((k) => <label key={k} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm ${x.outcome === k ? 'border-ember-300/60 bg-ember-300/[.08]' : 'border-white/10 hover:border-white/25'}`}><input type="radio" name="outcome" checked={x.outcome === k} onChange={() => patch({ outcome: k })} className="accent-[#ff9a62]" />{OUTCOMES[k].label}</label>)}</div>
           <label className="mt-5 block text-sm text-white/70">Towns per option: <b className="font-mono text-white">{x.n}</b><input type="range" min={LIMITS.lab.minTowns} max={Math.floor(MAX_RUNS / x.conds.length)} step={5} value={x.n} onChange={(e) => setN(Number(e.target.value))} className="mt-2 w-full accent-[#ff9a62]" /></label>
           <p className="mt-1 text-xs text-white/55">{total} simulated days in total. More towns = more certain answers.</p>
-          <button onClick={() => { edited.current = false; setParams({}, { replace: true }); void run(x) }} disabled={!valid || !!prog} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-black shadow-[0_8px_30px_rgba(0,0,0,.5)] disabled:opacity-40 max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:mt-0 max-lg:w-auto"><Play size={15} fill="currentColor" /> {prog ? 'Running…' : batch ? 'Run again' : `Run ${total} simulated days`}</button>
+          <button onClick={() => { edited.current = false; setParams({}, { replace: true }); void run(x) }} disabled={!valid || !!prog} className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-black shadow-[0_8px_30px_rgba(0,0,0,.5)] disabled:opacity-40 ${batch ? '' : 'max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:mt-0 max-lg:w-auto'}`}><Play size={15} fill="currentColor" /> {prog ? 'Running…' : batch ? 'Run again' : `Run ${total} simulated days`}</button>
           {!valid && <p className="mt-2 text-xs text-rose-200/80">Every announcement or whisper needs some words.</p>}
           {prog && <div className="mt-4" role="progressbar" aria-valuenow={Math.round(prog.done / prog.total * 100)} aria-valuemin={0} aria-valuemax={100}><div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-[#ff9a62] transition-all" style={{ width: `${(prog.done / prog.total) * 100}%` }} /></div><p className="mt-1.5 text-xs text-white/55">{prog.done} of {prog.total} days simulated</p></div>}
           <button onClick={() => { setX(defaultExperiment(x.template)); setBatch(null); setParams({}, { replace: true }) }} className="mt-3 inline-flex items-center gap-1.5 text-xs text-white/55 hover:text-white"><RotateCcw size={12} /> Reset to the default experiment</button>
         </aside>
       </section>
 
-      {batch && base && <section className="mt-10" aria-live="polite">
+      {batch && base && <section ref={resultRef} className="mt-10 scroll-mt-20" aria-live="polite">
         <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs uppercase tracking-[.2em] text-ember-200/60">Result · {batch.seeds.length} towns per option</p><h2 className="mt-2 text-2xl tracking-[-.03em] md:text-3xl">{o.label}</h2></div>
           <div className="flex flex-wrap gap-2"><button onClick={share} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 hover:text-white">{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Link copied' : 'Copy experiment link'}</button>
             <Link to={`/app/lab/report?x=${encodeExperiment(batch.x)}`} className="inline-flex items-center gap-1.5 rounded-lg border border-ember-300/40 bg-ember-300/10 px-3 py-2 text-sm text-ember-100 hover:bg-ember-300/20"><FileText size={14} /> Make a report</Link>
