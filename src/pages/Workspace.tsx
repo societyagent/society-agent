@@ -5,6 +5,7 @@ import { Ring, Spark } from '@/components/Spark'
 import { phaseOf } from '@/components/sprites'
 import { BrainCircuit, Bookmark, Check, Copy, Download, FileText, FlaskConical, Megaphone, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Share2, Sparkles, Wallet, X } from 'lucide-react'
 import { Town } from '@/components/Town'
+import { RumorTrail } from '@/components/RumorTrail'
 import { api, useAuth } from '@/lib/auth'
 import { AppShell } from '@/components/AppShell'
 import { LOCAL_RUN_KEY } from '@/pages/RunReport'
@@ -280,6 +281,7 @@ export function Simulation({ replay }: { replay?: { cfg: Cfg; ivs: { tick: numbe
                 <button onClick={() => setMindsOn((v) => !v)} aria-pressed={mindsOn} title="Residents who heard the news decide for themselves whether to warn, reassure, check facts or stay quiet. Their choices are recorded, so the run replays exactly." className={`tap-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 transition ${mindsOn ? 'border-ember-300/60 bg-ember-300/15 text-ember-100' : 'border-white/10 hover:border-white/25 hover:text-white'}`}><BrainCircuit size={13} /> Agent minds {mindsOn ? 'on' : 'off'}</button></>
               : <button onClick={auth.signIn} className="tap inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 transition hover:border-white/25 hover:text-white"><Mic size={13} /> Sign in for AI voices &amp; minds</button>}
             {voiceNote && <span className="text-amber-200/85">{voiceNote}</span>}{mindNote && <span className="text-amber-200/85">{mindNote}</span>}</div>}
+          <RumorTrail events={events} agents={s.agents} selected={sel} onSelect={setSel} layout={cfg.layout} />
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
             {([
               ['Heard the news', `${Math.round((last?.informed ?? 0) * 100)}%`, `of ${s.agents.length} residents`, metrics.map((m) => m.informed), '#ffb98a', <Ring key="r" pct={(last?.informed ?? 0) * 100} />],

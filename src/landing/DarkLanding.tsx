@@ -167,6 +167,10 @@ export function DarkLanding() {
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8, delay: .26, ease }}><ContractAddress /></motion.div>
         <motion.div initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: .3, ease }} className="mt-9"><LiveTown /></motion.div>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#ff9a62]/25 bg-[#ff9a62]/[.05] px-5 py-4 md:px-6">
+          <p className="text-sm leading-relaxed text-white/70"><span className="mr-2 font-mono text-[10px] uppercase tracking-[.15em] text-[#ffb185]">New · News trail</span>Pick a resident. Follow who told whom, when they heard, and their recorded turning points.</p>
+          <Link to="/app" className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-[#ffb185] hover:text-white">Explore the trail <ArrowRight size={15} /></Link>
+        </div>
       </div>
     </section>
 
