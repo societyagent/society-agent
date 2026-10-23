@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Docs } from './docs/Docs'
 import { Lab } from './pages/Lab'
 import { Report } from './pages/Report'
+import { PairedWatch } from './pages/PairedWatch'
 import { RunReport } from './pages/RunReport'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
     <Route path="/app/sim" element={<Simulation />} />
     <Route path="/app/lab" element={<Lab />} />
     <Route path="/app/lab/report" element={<Report />} />
+    <Route path="/app/lab/watch" element={<PairedWatch />} />
     <Route path="/app/runs" element={<MyRuns />} />
     <Route path="/app/runs/:id" element={<RunView />} />
     <Route path="/app/report" element={<RunReport local />} />

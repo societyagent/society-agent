@@ -11,7 +11,7 @@
     "test:engine": "tsx tests/engine-check.ts",
     "test:e2e": "tsx tests/e2e.ts",
     "test": "npm run typecheck && npm run lint && npm run test:unit",
-    "test:unit": "tsx --tsconfig tsconfig.app.json --test tests/engine.test.ts tests/lab.test.ts tests/custom.test.ts tests/layouts.test.ts tests/golden.test.ts tests/docs.test.ts tests/links.test.ts tests/security-lib.test.ts tests/agent-contract.test.ts tests/docs-search-and-limits.test.ts tests/docs-measured.test.ts tests/run-report.test.ts tests/trail.test.ts tests/alerts.test.ts tests/agent-compare.test.ts tests/wallet-1271.test.ts",
+    "test:unit": "tsx --tsconfig tsconfig.app.json --test tests/engine.test.ts tests/lab.test.ts tests/custom.test.ts tests/layouts.test.ts tests/golden.test.ts tests/docs.test.ts tests/links.test.ts tests/security-lib.test.ts tests/agent-contract.test.ts tests/docs-search-and-limits.test.ts tests/docs-measured.test.ts tests/run-report.test.ts tests/lab-integrity.test.ts tests/paired.test.ts tests/trail.test.ts tests/alerts.test.ts tests/agent-compare.test.ts tests/wallet-1271.test.ts",
     "typecheck": "tsc -b",
     "test:live": "tsx tests/e2e.ts $URL && tsx tests/security.ts $URL && tsx tests/ui.ts $URL"
   },

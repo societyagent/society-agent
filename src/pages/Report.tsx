@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { ArrowLeft, Check, Copy, Download, FlaskConical, Printer } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Download, FlaskConical, Printer, GitCompareArrows } from 'lucide-react'
 import { BandsChart } from '@/components/BandsChart'
 import { decodeExperiment, runBatch, type Batch } from '@/engine/lab'
 import { buildReport, reportLink, reportMarkdown } from '@/engine/report'
@@ -57,7 +57,10 @@ export function Report() {
           <div><dt className="font-mono text-[10px] uppercase tracking-[.16em] text-black/62">Options compared</dt><dd className="mt-1">{batch.x.conds.map((c) => c.label).join(' · ')}</dd></div>
         </dl>
 
-        {r.summary && <section className="avoid mt-9"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">The short answer</h2><p className="mt-3 font-display text-2xl leading-snug md:text-[28px]">{r.summary}</p></section>}
+        {r.summary && <section className="avoid mt-9"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">The short answer</h2><p className="mt-3 font-display text-2xl leading-snug md:text-[28px]">{r.summary}</p>
+          {r.findings.some((f) => f.caution) && <p className="mt-4 rounded-lg border border-[#b9531f]/30 bg-[#b9531f]/[.07] p-3 text-sm leading-relaxed text-[#713b1e]">Some options change more than one thing. The differences are real within this model, but cannot be credited to a single action; see the cautions below.</p>}</section>}
+        {r.setup.some((s) => s.lines.some((line) => line.startsWith('Warning:'))) && <p className="avoid mt-4 rounded-lg border border-[#b9531f]/30 bg-[#b9531f]/[.07] p-3 text-sm leading-relaxed text-[#713b1e]">A label in this experiment does not match what that option actually does. Check “What each option was” before presenting the conclusion.</p>}
+        <section className="avoid mt-8 rounded-xl border border-[#b9531f]/30 bg-[#f8f0e7] p-5"><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[#944820]">See the society behind the numbers</p><h2 className="mt-2 font-display text-2xl">One town. Two versions of the day.</h2><p className="mt-2 text-sm leading-relaxed text-black/65">Rewind both towns together, read what residents actually said, and see when their paths diverged. An example run—not the average of all {r.towns} towns.</p><Link to={`/app/lab/watch?x=${code}&option=1&seed=0`} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#1c1814] px-4 py-2.5 text-sm font-medium text-white"><GitCompareArrows size={16} /> Watch a paired town</Link></section>
 
         <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">What the experiment shows</h2>
           <div className="mt-3 rounded-lg border border-black/10 bg-white p-3 md:p-5">
@@ -67,7 +70,7 @@ export function Report() {
           </div></section>
 
         <section className="mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">Findings</h2>
-          <ul className="mt-3 space-y-4">{r.findings.map((f) => <li key={f.label} className={`avoid border-l-[3px] pl-4 ${f.clear ? 'border-[#1f9d6b]' : 'border-black/20'}`}><p className="text-lg leading-snug">{f.headline}</p><p className="mt-1 text-sm leading-relaxed text-black/62">{f.detail}</p></li>)}</ul></section>
+          <ul className="mt-3 space-y-4">{r.findings.map((f) => <li key={f.label} className={`avoid border-l-[3px] pl-4 ${f.clear ? 'border-[#1f9d6b]' : 'border-black/20'}`}><p className="text-lg leading-snug">{f.headline}</p><p className="mt-1 text-sm leading-relaxed text-black/62">{f.detail}</p>{f.caution && <p className="mt-2 text-sm font-medium leading-relaxed text-[#874120]">Caution: {f.caution}</p>}</li>)}</ul></section>
 
         <section className="avoid mt-10"><h2 className="font-mono text-[11px] uppercase tracking-[.2em] text-black/62">The numbers</h2>
           <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[520px] text-sm"><thead><tr className="border-b border-black/20 text-left text-[11px] uppercase tracking-wider text-black/62"><th className="py-2 pr-3 font-medium">Option</th><th className="py-2 pr-3 font-medium">Average</th><th className="py-2 pr-3 font-medium">95% range of the average</th><th className="py-2 font-medium">Typical towns (10th–90th)</th></tr></thead>

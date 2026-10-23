@@ -111,7 +111,7 @@ test('report: built from the same data, honest wording, and Markdown that cannot
   assert.equal(r.findings.length, 2); assert.equal(r.rows.length, 3); assert.equal(r.towns, 30)
   assert.match(r.summary, /of 2 options? made a clear difference|None of the options/)
   assert.ok(r.setup.every((s) => s.lines.length >= 2) && r.setup[1].lines.some((l) => /Village square/.test(l)))
-  assert.ok(r.notes.some((n) => /not a forecast of real people/.test(n)) && r.notes.some((n) => /same 30 randomly generated towns/.test(n)))
+  assert.ok(r.notes.some((n) => /not a forecast of real people/.test(n)) && r.notes.some((n) => /same 30 random seeds/.test(n) && /different version of the town/.test(n)))
   const md = reportMarkdown(b, 'https://example.test/app/lab?x=abc')
   assert.ok(md.startsWith('# ') && md.includes('## Findings') && md.includes('| Option |') && md.includes('Village \\| square') && md.includes('[Re-run this experiment](https://example.test/app/lab?x=abc)'))
   assert.equal(JSON.stringify(buildReport(b)), JSON.stringify(r), 'a report is a pure function of its batch')
